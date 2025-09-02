@@ -1,6 +1,8 @@
 /**
  * Servidor principal da API FNRHEvento em Node.js com Express
  * Inclui autenticação JWT, CORS e outras configurações de segurança
+ * Servidor principal do FNRHEvento
+ * API mínima com autenticação JWT e rotas básicas
  */
 
 require('dotenv').config();

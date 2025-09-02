@@ -10,6 +10,16 @@
     "src/**/*.ts"
   ],
   "exclude": [
-    "src/**/*.spec.ts"
+    "src/**/*.spec.ts",
+    "src/app/components/change-password/**",
+    "src/app/components/dashboard/**",
+    "src/app/components/diretrizes/**",
+    "src/app/components/eventos/**",
+    "src/app/components/regras/**",
+    "src/app/components/reservas/**",
+    "src/app/components/reserva-evento/**",
+    "src/app/components/reserva-evento-list/**",
+    "src/app/components/restaurantes/**",
+    "src/app/components/users/**"
   ]
 }
