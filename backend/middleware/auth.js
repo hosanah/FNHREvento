@@ -1,6 +1,6 @@
 /**
- * Middleware de autenticação JWT
- * Verifica e valida tokens JWT nas requisições
+ * Middleware de autenticação JWT do FNRHEvento
+ * Verifica e valida tokens nas requisições
  */
 
 const jwt = require('jsonwebtoken');
@@ -133,8 +133,8 @@ function generateToken(userId, username) {
 
   const options = {
     expiresIn: '24h', // Token expira em 24 horas
-    issuer: 'fullstack-app',
-    audience: 'fullstack-users'
+    issuer: 'fnrhevento',
+    audience: 'fnrhevento-users'
   };
 
   return jwt.sign(payload, process.env.JWT_SECRET, options);
