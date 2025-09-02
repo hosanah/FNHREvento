@@ -44,7 +44,7 @@ export class LoginComponent implements OnInit {
   };
 
   isLoading = false;
-  returnUrl = '/dashboard';
+  returnUrl = '/';
 
   constructor(
     private authService: AuthService,
@@ -55,7 +55,7 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     // Obter URL de retorno dos query params
-    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
 
     // Se já estiver autenticado, redirecionar
     if (this.authService.isAuthenticated()) {
