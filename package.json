@@ -1,7 +1,7 @@
 {
-  "name": "fullstack-angular-nodejs",
+  "name": "fnrhevento",
   "version": "1.0.0",
-  "description": "Projeto fullstack com Angular (PrimeNG) e Node.js (Express + JWT)",
+  "description": "Projeto FNRHEvento com autenticação e front/back mínimos",
   "scripts": {
     "install:backend": "cd backend && npm install",
     "install:frontend": "cd frontend && npm install",
@@ -22,7 +22,7 @@
     "express",
     "jwt",
     "primeng",
-    "fullstack"
+    "fnrhevento"
   ],
   "author": "Codex",
   "license": "MIT"

@@ -1,5 +1,5 @@
 /**
- * Componente de Dashboard
+ * Componente de Dashboard do FNRHEvento
  * Tela principal protegida com dados do usuário
  */
 

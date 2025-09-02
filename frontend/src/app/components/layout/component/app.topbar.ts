@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { MenuItem } from 'primeng/api';
-import { Router, RouterModule } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { StyleClassModule } from 'primeng/styleclass';
 import { MenuModule } from 'primeng/menu';
@@ -50,20 +50,15 @@ export class AppTopbar {
     menuItems!: MenuItem[];
     user: User | null;
 
-    constructor(public layoutService: LayoutService, private authService: AuthService, private router: Router) {
+    constructor(public layoutService: LayoutService, private authService: AuthService) {
         this.user = this.authService.getCurrentUser();
         this.menuItems = [
-            { label: 'Trocar senha', command: () => this.onChangePassword() },
             { label: 'Logout', command: () => this.onLogout(), styleClass: 'p-menuitem-danger' }
         ];
     }
 
     toggleDarkMode() {
         this.layoutService.layoutConfig.update((state) => ({ ...state, darkTheme: !state.darkTheme }));
-    }
-
-    onChangePassword() {
-        this.router.navigate(['/change-password']);
     }
 
     onLogout() {
