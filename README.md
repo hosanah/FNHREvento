@@ -91,7 +91,7 @@ JWT_SECRET=sua_chave_secreta_jwt_muito_segura_aqui_2024
 # Configurações do banco de dados
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=tematico
+DB_NAME=fnhrevento
 DB_USER=postgres
 DB_PASSWORD=postgres
 
