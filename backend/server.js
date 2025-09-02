@@ -1,4 +1,6 @@
 /**
+ * Servidor principal da API FNRHEvento em Node.js com Express
+ * Inclui autenticação JWT, CORS e outras configurações de segurança
  * Servidor principal do FNRHEvento
  * API mínima com autenticação JWT e rotas básicas
  */
@@ -15,18 +17,6 @@ const { ApiError, errorHandler } = require('./middleware/errorHandler');
 
 // Importar rotas
 const authRoutes = require('./routes/auth');
-const dashboardRoutes = require('./routes/dashboard');
-const usersRoutes = require('./routes/users');
-const restaurantesRoutes = require('./routes/restaurantes');
-const eventosRoutes = require('./routes/eventos');
-const reservasRoutes = require('./routes/reservas');
-const eventosReservasRoutes = require('./routes/eventos_reservas');
-const diretrizesRoutes = require('./routes/diretrizes');
-const configuracoesRoutes = require('./routes/configuracoes');
-const regrasRoutes = require('./routes/regras');
-
-// Importar middleware de autenticação
-const { authenticateToken } = require('./middleware/auth');
 
 // Importar configuração do banco de dados
 const { initDatabase } = require('./config/database');
@@ -74,7 +64,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Middleware de logging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - FNRHEvento ${req.method} ${req.path}`);
   next();
 });
 
@@ -94,17 +84,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/auth/login', loginLimiter);
 app.use('/auth', authRoutes);
 
-// Rotas protegidas (requerem autenticação)
-app.use('/dashboard', authenticateToken, dashboardRoutes);
-app.use('/users', authenticateToken, usersRoutes);
-app.use('/restaurantes', authenticateToken, restaurantesRoutes);
-app.use('/eventos', authenticateToken, eventosRoutes);
-app.use('/reservas', authenticateToken, reservasRoutes);
-app.use('/eventos-reservas', authenticateToken, eventosReservasRoutes);
-app.use('/diretrizes', authenticateToken, diretrizesRoutes);
-app.use('/configuracoes', authenticateToken, configuracoesRoutes);
-app.use('/regras', authenticateToken, regrasRoutes);
-
 // Rota para servir arquivos estáticos (se necessário)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -120,29 +99,29 @@ async function startServer() {
   try {
     // Inicializar banco de dados
     await initDatabase();
-    console.log('✅ Banco de dados inicializado com sucesso');
+    console.log('✅ FNRHEvento: banco de dados inicializado com sucesso');
     
     // Iniciar servidor
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`📍 URL: http://localhost:${PORT}`);
-      console.log(`🌍 Ambiente: ${process.env.NODE_ENV}`);
-      console.log(`🔒 CORS habilitado para: ${process.env.CORS_ORIGIN}`);
+      console.log(`🚀 FNRHEvento rodando na porta ${PORT}`);
+      console.log(`📍 FNRHEvento URL: http://localhost:${PORT}`);
+      console.log(`🌍 FNRHEvento ambiente: ${process.env.NODE_ENV}`);
+      console.log(`🔒 FNRHEvento CORS habilitado para: ${process.env.CORS_ORIGIN}`);
     });
   } catch (error) {
-    console.error('❌ Erro ao iniciar servidor:', error);
+    console.error('❌ FNRHEvento: erro ao iniciar servidor:', error);
     process.exit(1);
   }
 }
 
 // Tratamento de sinais para encerramento graceful
 process.on('SIGTERM', () => {
-  console.log('🛑 Recebido SIGTERM, encerrando servidor...');
+  console.log('🛑 FNRHEvento: recebido SIGTERM, encerrando servidor...');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('🛑 Recebido SIGINT, encerrando servidor...');
+  console.log('🛑 FNRHEvento: recebido SIGINT, encerrando servidor...');
   process.exit(0);
 });
 
