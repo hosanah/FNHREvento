@@ -39,6 +39,23 @@ npm run install:frontend
 
 Para iniciar frontend e backend juntos:
 
+# Configurações do banco de dados
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=fnhrevento
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+# CORS
+CORS_ORIGIN=http://localhost:4200
+```
+
+Para o frontend em produção, defina a variável de ambiente `NG_APP_API_URL` com a URL da API antes de executar o build.
+Em desenvolvimento, o arquivo `src/environments/environment.ts` já utiliza `http://localhost:3000` por padrão.
+
+## 🚀 Executando o Projeto
+
+### Opção 1: Executar frontend e backend juntos (Recomendado)
 ```bash
 npm start
 ```
