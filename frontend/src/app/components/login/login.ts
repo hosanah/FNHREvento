@@ -1,5 +1,5 @@
 /**
- * Componente de Login
+ * Componente de Login do FNRHEvento
  * Tela de autenticação com formulário responsivo
  */
 
