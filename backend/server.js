@@ -17,6 +17,7 @@ const { ApiError, errorHandler } = require('./middleware/errorHandler');
 
 // Importar rotas
 const authRoutes = require('./routes/auth');
+const hospedeRoutes = require('./routes/hospedes');
 
 // Importar configuração do banco de dados
 const { initDatabase } = require('./config/database');
@@ -83,6 +84,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // Rotas de autenticação (aplicar rate limiting específico)
 app.use('/auth/login', loginLimiter);
 app.use('/auth', authRoutes);
+app.use('/hospedes', hospedeRoutes);
 
 // Rota para servir arquivos estáticos (se necessário)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

@@ -1,0 +1,48 @@
+<h2>Hóspedes</h2>
+<a routerLink="/hospedes/import">Importar planilha</a>
+<table>
+  <thead>
+    <tr>
+      <th>Código</th>
+      <th>Apto</th>
+      <th>Nome Completo</th>
+      <th>Endereço</th>
+      <th>Estado</th>
+      <th>E-mail</th>
+      <th>Profissão</th>
+      <th>Cidade</th>
+      <th>Identidade</th>
+      <th>CPF</th>
+      <th>Telefone</th>
+      <th>País</th>
+      <th>Cep</th>
+      <th>Data Nascimento</th>
+      <th>Sexo</th>
+      <th>Entrada</th>
+      <th>Saída</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let h of hospedes">
+      <td>{{h.codigo}}</td>
+      <td>{{h.apto}}</td>
+      <td>{{h.nome_completo}}</td>
+      <td>{{h.endereco}}</td>
+      <td>{{h.estado}}</td>
+      <td>{{h.email}}</td>
+      <td>{{h.profissao}}</td>
+      <td>{{h.cidade}}</td>
+      <td>{{h.identidade}}</td>
+      <td>{{h.cpf}}</td>
+      <td>{{h.telefone}}</td>
+      <td>{{h.pais}}</td>
+      <td>{{h.cep}}</td>
+      <td>{{h.data_nascimento}}</td>
+      <td>{{h.sexo}}</td>
+      <td>{{h.entrada}}</td>
+      <td>{{h.saida}}</td>
+      <td>{{h.status}}</td>
+    </tr>
+  </tbody>
+</table>
