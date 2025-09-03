@@ -7,3 +7,4 @@
 
 # Ignore backend package lock
 backend/package-lock.json
+backend/database/*.sqlite
