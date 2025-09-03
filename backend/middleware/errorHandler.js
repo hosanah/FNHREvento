@@ -8,7 +8,12 @@ class ApiError extends Error {
 }
 
 function errorHandler(err, req, res, next) {
-  console.error('❌', err.message, err.details || err.stack);
+  const status = err.statusCode || 500;
+  if (status >= 500) {
+    console.error('❌', err.message, err.details || err.stack);
+  } else {
+    console.warn('⚠️', err.message);
+  }
 
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({ error: 'Token inválido', code: 'TOKEN_INVALID' });
@@ -16,8 +21,6 @@ function errorHandler(err, req, res, next) {
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({ error: 'Token expirado', code: 'TOKEN_EXPIRED' });
   }
-
-  const status = err.statusCode || 500;
 
   if (status === 400) {
     const response = { success: false, errors: [err.message] };

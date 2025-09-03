@@ -54,7 +54,10 @@ router.get('/', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const db = getDatabase();
-    await db.query('DELETE FROM hospedes WHERE id = ?', [req.params.id]);
+    const result = await db.query('DELETE FROM hospedes WHERE id = ?', [req.params.id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Hóspede não encontrado' });
+    }
     res.status(204).send();
   } catch (err) {
     next(err);
