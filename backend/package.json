@@ -13,7 +13,7 @@
     "cors": "^2.8.5",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.3",
+    "sqlite3": "^5.1.6",
     "dotenv": "^16.3.1",
     "helmet": "^7.1.0",
     "express-rate-limit": "^7.1.5",
@@ -26,7 +26,7 @@
     "nodejs",
     "express",
     "jwt",
-    "postgresql",
+    "sqlite",
     "api"
   ],
   "author": "Codex",

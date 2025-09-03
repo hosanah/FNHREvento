@@ -1,45 +1,38 @@
 /**
- * Configuração do banco de dados PostgreSQL
+ * Configuração do banco de dados SQLite
  * Inclui inicialização e operações básicas
  */
 
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
-let pool = null;
+let db = null;
 
 function getConfig() {
   return {
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT) || 5432,
-    database: process.env.DB_NAME || 'fnhrevento',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres'
+    filename: process.env.DB_FILE || path.join(__dirname, '../database/database.sqlite')
   };
 }
 
 /**
- * Conectar ao banco de dados PostgreSQL
+ * Conectar ao banco de dados SQLite
  */
 async function connectDatabase() {
-  pool = new Pool(getConfig());
-  try {
-    await pool.query('SELECT 1');
-    console.log('✅ Conectado ao banco de dados PostgreSQL');
-  } catch (err) {
-    console.error('❌ Erro ao conectar com o banco de dados:', err.message);
-    throw err;
-  }
-}
-
-/**
- * Converter placeholders estilo `?` para `$1, $2, ...`
- */
-function convertPlaceholders(sql) {
-  let index = 1;
-  return sql.replace(/\?/g, () => `$${index++}`);
+  const config = getConfig();
+  await new Promise((resolve, reject) => {
+    db = new sqlite3.Database(config.filename, err => {
+      if (err) {
+        console.error('❌ Erro ao conectar com o banco de dados:', err.message);
+        reject(err);
+      } else {
+        db.run('PRAGMA foreign_keys = ON');
+        console.log('✅ Conectado ao banco de dados SQLite');
+        resolve();
+      }
+    });
+  });
 }
 
 /**
@@ -48,7 +41,12 @@ function convertPlaceholders(sql) {
 async function createTables() {
   const schemaPath = path.join(__dirname, '../database/schema.sql');
   const schema = fs.readFileSync(schemaPath, 'utf8');
-  await pool.query(schema);
+  await new Promise((resolve, reject) => {
+    db.exec(schema, err => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
   console.log('✅ Tabelas criadas/verificadas');
 }
 
@@ -56,19 +54,30 @@ async function createTables() {
  * Criar usuário padrão para testes
  */
 async function createDefaultUser() {
-  const { rows } = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
-  if (rows.length > 0) {
-    console.log('✅ Usuário admin já existe');
-    return;
-  }
-  const hashedPassword = await bcrypt.hash('admin123', 12);
-  await pool.query(
-    'INSERT INTO users (username, email, password, full_name) VALUES ($1, $2, $3, $4)',
-    ['admin', 'admin@example.com', hashedPassword, 'Administrador']
-  );
-  console.log('✅ Usuário admin criado com sucesso');
-  console.log('📧 Email: admin@example.com');
-  console.log('🔑 Senha: admin123');
+  await new Promise((resolve, reject) => {
+    db.get('SELECT id FROM users WHERE username = ?', ['admin'], async (err, row) => {
+      if (err) {
+        console.error('❌ Erro ao verificar usuário padrão:', err.message);
+        return reject(err);
+      }
+      if (row) {
+        console.log('✅ Usuário admin já existe');
+        return resolve();
+      }
+      const hashedPassword = await bcrypt.hash('admin123', 12);
+      db.run(
+        'INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)',
+        ['admin', 'admin@example.com', hashedPassword, 'Administrador'],
+        function(err) {
+          if (err) return reject(err);
+          console.log('✅ Usuário admin criado com sucesso');
+          console.log('📧 Email: admin@example.com');
+          console.log('🔑 Senha: admin123');
+          resolve();
+        }
+      );
+    });
+  });
 }
 
 /**
@@ -85,45 +94,48 @@ async function initDatabase() {
  * Obter objeto de acesso ao banco
  */
 function getDatabase() {
-  if (!pool) {
+  if (!db) {
     throw new Error('Banco de dados não inicializado');
   }
   return {
-    async query(sql, params) {
-      return pool.query(convertPlaceholders(sql), params);
+    query(sql, params = []) {
+      return new Promise((resolve, reject) => {
+        const isSelect = /^\s*SELECT/i.test(sql);
+        if (isSelect) {
+          db.all(sql, params, (err, rows) => {
+            if (err) return reject(err);
+            resolve({ rows, rowCount: rows.length });
+          });
+        } else {
+          db.run(sql, params, function(err) {
+            if (err) return reject(err);
+            resolve({ rows: [], rowCount: this.changes, lastID: this.lastID });
+          });
+        }
+      });
     },
     get(sql, params, callback) {
       if (typeof params === 'function') {
         callback = params;
         params = [];
       }
-      pool
-        .query(convertPlaceholders(sql), params)
-        .then(res => callback(null, res.rows[0]))
-        .catch(err => callback(err));
+      db.get(sql, params, (err, row) => callback(err, row));
     },
     all(sql, params, callback) {
       if (typeof params === 'function') {
         callback = params;
         params = [];
       }
-      pool
-        .query(convertPlaceholders(sql), params)
-        .then(res => callback(null, res.rows))
-        .catch(err => callback(err));
+      db.all(sql, params, (err, rows) => callback(err, rows));
     },
     run(sql, params, callback) {
       if (typeof params === 'function') {
         callback = params;
         params = [];
       }
-      pool
-        .query(convertPlaceholders(sql), params)
-        .then(res => {
-          const ctx = { lastID: res.rows[0]?.id, changes: res.rowCount };
-          if (callback) callback.call(ctx, null);
-        })
-        .catch(err => callback(err));
+      db.run(sql, params, function(err) {
+        if (callback) callback.call(this, err);
+      });
     }
   };
 }
@@ -132,7 +144,14 @@ function getDatabase() {
  * Fechar conexão com banco de dados
  */
 function closeDatabase() {
-  return pool ? pool.end() : Promise.resolve();
+  return db
+    ? new Promise((resolve, reject) => {
+        db.close(err => {
+          if (err) return reject(err);
+          resolve();
+        });
+      })
+    : Promise.resolve();
 }
 
 module.exports = {
@@ -143,3 +162,4 @@ module.exports = {
   createTables,
   createDefaultUser
 };
+

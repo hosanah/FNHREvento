@@ -255,7 +255,7 @@ router.post('/register', requireApiKey, async (req, res, next) => {
 
           // Inserir novo usuário
           db.run(
-            'INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?) RETURNING id',
+            'INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)',
             [username, email, hashedPassword, fullName || username],
             function(err) {
             if (err) {
