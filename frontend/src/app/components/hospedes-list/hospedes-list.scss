@@ -3,6 +3,9 @@
   padding: 1rem;
 }
 
-::ng-deep .p-button {
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
 }

@@ -18,4 +18,8 @@ export class HospedesService {
   list(): Observable<any[]> {
     return this.http.get<any[]>(this.baseUrl);
   }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
 }
