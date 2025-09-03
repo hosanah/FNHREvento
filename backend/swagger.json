@@ -8,7 +8,7 @@
   "servers": [
     {
       "url": "https://tematicoapi.zapchatbr.com/",
-      "description": "API Temático"
+      "description": "API FNRHEvento"
     }
   ],
   "components": {
