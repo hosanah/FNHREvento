@@ -28,7 +28,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       inserts.push(db.query(
         `INSERT INTO hospedes (codigo, apto, nome_completo, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, data_nascimento, sexo, entrada, saida, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [codigo, apto, nomeCompleto, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, dataNascimento, sexo, entrada, saida, 'importado']
+        [codigo, apto, nomeCompleto, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, dataNascimento, sexo, entrada, saida, 1]
       ));
     }
     await Promise.all(inserts);
