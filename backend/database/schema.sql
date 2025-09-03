@@ -18,3 +18,26 @@ CREATE TABLE IF NOT EXISTS sessions (
   revoked_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Tabela para armazenar hóspedes importados de planilhas
+CREATE TABLE IF NOT EXISTS hospedes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  codigo TEXT,
+  apto TEXT,
+  nome_completo TEXT,
+  endereco TEXT,
+  estado TEXT,
+  email TEXT,
+  profissao TEXT,
+  cidade TEXT,
+  identidade TEXT,
+  cpf TEXT,
+  telefone TEXT,
+  pais TEXT,
+  cep TEXT,
+  data_nascimento TEXT,
+  sexo TEXT,
+  entrada TEXT,
+  saida TEXT,
+  status TEXT
+);

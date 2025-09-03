@@ -1,0 +1,4 @@
+<h2>Importar Hóspedes</h2>
+<input type="file" (change)="onFile($event)" />
+<button (click)="upload()" [disabled]="!file">Importar</button>
+<a routerLink="/hospedes">Voltar</a>
