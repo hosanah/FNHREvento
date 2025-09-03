@@ -50,4 +50,15 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// Excluir hóspede
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const db = getDatabase();
+    await db.query('DELETE FROM hospedes WHERE id = ?', [req.params.id]);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

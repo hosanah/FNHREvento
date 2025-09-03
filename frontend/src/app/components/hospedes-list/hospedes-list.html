@@ -1,5 +1,7 @@
-<h2>Hóspedes</h2>
-<p-button label="Importar planilha" [routerLink]="['/hospedes/import']"></p-button>
+<div class="header">
+  <h2>Hóspedes</h2>
+  <p-button label="Importar planilha" [routerLink]="['/hospedes/import']"></p-button>
+</div>
 <p-table [value]="hospedes" responsiveLayout="scroll">
   <ng-template pTemplate="header">
     <tr>
@@ -20,6 +22,7 @@
       <th>Sexo</th>
       <th>Entrada</th>
       <th>Saída</th>
+      <th>Ações</th>
     </tr>
   </ng-template>
   <ng-template pTemplate="body" let-h>
@@ -41,6 +44,9 @@
       <td>{{ h.sexo }}</td>
       <td>{{ h.entrada }}</td>
       <td>{{ h.saida }}</td>
+      <td>
+        <p-button icon="pi pi-trash" severity="danger" (click)="remove(h.id)" rounded outlined></p-button>
+      </td>
     </tr>
   </ng-template>
 </p-table>

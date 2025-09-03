@@ -20,4 +20,10 @@ export class HospedesListComponent implements OnInit {
   ngOnInit(): void {
     this.service.list().subscribe(data => this.hospedes = data);
   }
+
+  remove(id: number): void {
+    this.service.delete(id).subscribe(() => {
+      this.hospedes = this.hospedes.filter(h => h.id !== id);
+    });
+  }
 }
