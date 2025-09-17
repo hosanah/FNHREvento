@@ -22,6 +22,8 @@
       <th>Sexo</th>
       <th>Entrada</th>
       <th>Saída</th>
+      <th>ID Hóspede Oracle</th>
+      <th>ID Reserva Oracle</th>
       <th>Ações</th>
     </tr>
   </ng-template>
@@ -44,7 +46,16 @@
       <td>{{ h.sexo }}</td>
       <td>{{ h.entrada }}</td>
       <td>{{ h.saida }}</td>
+      <td>{{ h.idhospede || '-' }}</td>
+      <td>{{ h.idreservasfront || '-' }}</td>
       <td>
+        <p-button
+          icon="pi pi-search"
+          label="Compatibilidade"
+          (click)="buscarCompatibilidade(h)"
+          [loading]="buscandoCompatibilidade[h.id]"
+          styleClass="compatibilidade-button"
+        ></p-button>
         <p-button icon="pi pi-trash" severity="danger" (click)="remove(h.id)" rounded outlined></p-button>
       </td>
     </tr>
