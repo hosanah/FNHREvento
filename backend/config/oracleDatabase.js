@@ -72,6 +72,56 @@ async function getOracleConnection() {
   }
 }
 
+async function buscarReservaOracle({
+  dataChegadaPrevista,
+  dataPartidaPrevista,
+  nomeHospede,
+  sobrenomeHospede
+}) {
+  const connection = await getOracleConnection();
+
+  try {
+    const result = await connection.execute(
+      `SELECT RF.IDRESERVASFRONT,
+              RF.NUMRESERVA,
+              H.IDHOSPEDE,
+              RF.STATUSRESERVA,
+              RF.DATACHEGPREVISTA,
+              RF.DATAPARTPREVISTA
+         FROM RESERVASFRONT RF,
+              MOVIMENTOHOSPEDES MH,
+              HOSPEDE H
+        WHERE RF.IDRESERVASFRONT = MH.IDRESERVASFRONT
+          AND MH.IDHOSPEDE = H.IDHOSPEDE
+          AND RF.STATUSRESERVA IN (1, 2)
+          AND RF.DATACHEGPREVISTA = :dataChegadaPrevista
+          AND RF.DATAPARTPREVISTA = :dataPartidaPrevista
+          AND H.NOME = :nomeHospede
+          AND H.SOBRENOME = :sobrenomeHospede`,
+      {
+        dataChegadaPrevista,
+        dataPartidaPrevista,
+        nomeHospede,
+        sobrenomeHospede
+      },
+      {
+        outFormat: oracledb.OUT_FORMAT_OBJECT
+      }
+    );
+
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Erro ao buscar reserva no Oracle:', error.message);
+    throw error;
+  } finally {
+    try {
+      await connection.close();
+    } catch (closeError) {
+      console.error('⚠️  Erro ao fechar conexão Oracle após buscar reserva:', closeError.message);
+    }
+  }
+}
+
 async function closeOraclePool() {
   if (!oraclePool) {
     return;
@@ -90,5 +140,6 @@ async function closeOraclePool() {
 module.exports = {
   initOraclePool,
   getOracleConnection,
-  closeOraclePool
+  closeOraclePool,
+  buscarReservaOracle
 };
