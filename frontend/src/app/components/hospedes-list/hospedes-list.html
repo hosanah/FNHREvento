@@ -1,63 +1,121 @@
-<div class="header">
-  <h2>Hóspedes</h2>
-  <p-button label="Importar planilha" [routerLink]="['/hospedes/import']"></p-button>
-</div>
-<p-table [value]="hospedes" responsiveLayout="scroll">
+<p-panel styleClass="hospedes-panel">
   <ng-template pTemplate="header">
-    <tr>
-      <th>Código</th>
-      <th>Apto</th>
-      <th>Nome Completo</th>
-      <th>Endereço</th>
-      <th>Estado</th>
-      <th>E-mail</th>
-      <th>Profissão</th>
-      <th>Cidade</th>
-      <th>Identidade</th>
-      <th>CPF</th>
-      <th>Telefone</th>
-      <th>País</th>
-      <th>Cep</th>
-      <th>Data Nascimento</th>
-      <th>Sexo</th>
-      <th>Entrada</th>
-      <th>Saída</th>
-      <th>ID Hóspede Oracle</th>
-      <th>ID Reserva Oracle</th>
-      <th>Ações</th>
-    </tr>
+    <div class="panel-header">
+      <div class="panel-header__titles">
+        <h2>Hóspedes</h2>
+        <p class="subtitle">Visualize e gerencie os cadastros importados do hotel.</p>
+      </div>
+      <p-button label="Importar planilha" icon="pi pi-upload" [routerLink]="['/hospedes/import']"></p-button>
+    </div>
   </ng-template>
-  <ng-template pTemplate="body" let-h>
-    <tr>
-      <td>{{ h.codigo }}</td>
-      <td>{{ h.apto }}</td>
-      <td>{{ h.nome_completo }}</td>
-      <td>{{ h.endereco }}</td>
-      <td>{{ h.estado }}</td>
-      <td>{{ h.email }}</td>
-      <td>{{ h.profissao }}</td>
-      <td>{{ h.cidade }}</td>
-      <td>{{ h.identidade }}</td>
-      <td>{{ h.cpf }}</td>
-      <td>{{ h.telefone }}</td>
-      <td>{{ h.pais }}</td>
-      <td>{{ h.cep }}</td>
-      <td>{{ h.data_nascimento }}</td>
-      <td>{{ h.sexo }}</td>
-      <td>{{ h.entrada }}</td>
-      <td>{{ h.saida }}</td>
-      <td>{{ h.idhospede || '-' }}</td>
-      <td>{{ h.idreservasfront || '-' }}</td>
-      <td>
-        <p-button
-          icon="pi pi-search"
-          label="Compatibilidade"
-          (click)="buscarCompatibilidade(h)"
-          [loading]="buscandoCompatibilidade[h.id]"
-          styleClass="compatibilidade-button"
-        ></p-button>
-        <p-button icon="pi pi-trash" severity="danger" (click)="remove(h.id)" rounded outlined></p-button>
-      </td>
-    </tr>
-  </ng-template>
-</p-table>
+
+  <ng-container *ngIf="paginatedHospedes.length; else emptyState">
+    <div class="cards-grid">
+      <p-card *ngFor="let h of paginatedHospedes" styleClass="hospede-card">
+        <ng-template pTemplate="title">
+          <div class="card-title">
+            <span class="card-title__name">{{ h.nome_completo || 'Hóspede sem nome' }}</span>
+            <p-tag
+              *ngIf="h.apto; else semApto"
+              severity="info"
+              value="Apto {{ h.apto }}"
+            ></p-tag>
+            <ng-template #semApto>
+              <p-tag severity="warning" value="Apto não informado"></p-tag>
+            </ng-template>
+          </div>
+        </ng-template>
+
+        <ng-template pTemplate="subtitle">
+          <div class="card-subtitle">Código #{{ h.codigo || '-' }}</div>
+        </ng-template>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">E-mail</span>
+            <span class="value">{{ h.email || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Telefone</span>
+            <span class="value">{{ h.telefone || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Profissão</span>
+            <span class="value">{{ h.profissao || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Documento</span>
+            <span class="value">{{ h.identidade || h.cpf || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Nascimento</span>
+            <span class="value">{{ h.data_nascimento || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Sexo</span>
+            <span class="value">{{ h.sexo || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Endereço</span>
+            <span class="value">{{ h.endereco || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Cidade/UF</span>
+            <span class="value">{{ h.cidade || '-' }} - {{ h.estado || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">País</span>
+            <span class="value">{{ h.pais || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">CEP</span>
+            <span class="value">{{ h.cep || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Entrada</span>
+            <span class="value">{{ h.entrada || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Saída</span>
+            <span class="value">{{ h.saida || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">ID Hóspede Oracle</span>
+            <span class="value">{{ h.idhospede || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">ID Reserva Oracle</span>
+            <span class="value">{{ h.idreservasfront || '-' }}</span>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <p-button
+            icon="pi pi-search"
+            label="Compatibilidade"
+            (click)="buscarCompatibilidade(h)"
+            [loading]="buscandoCompatibilidade[h.id]"
+            styleClass="compatibilidade-button"
+          ></p-button>
+          <p-button icon="pi pi-trash" severity="danger" (click)="remove(h.id)" rounded outlined></p-button>
+        </div>
+      </p-card>
+    </div>
+  </ng-container>
+</p-panel>
+
+<ng-template #emptyState>
+  <div class="empty-state">
+    <i class="pi pi-users"></i>
+    <h3>Nenhum hóspede encontrado</h3>
+    <p>Importe uma planilha para começar a visualizar os registros.</p>
+  </div>
+</ng-template>
+
+<p-paginator
+  [first]="page * rows"
+  [rows]="rows"
+  [rowsPerPageOptions]="[6, 9, 12, 24]"
+  [totalRecords]="hospedes.length"
+  (onPageChange)="onPageChange($event)"
+></p-paginator>
