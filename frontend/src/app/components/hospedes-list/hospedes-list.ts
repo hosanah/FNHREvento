@@ -1,17 +1,29 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { PanelModule } from 'primeng/panel';
-import { CardModule } from 'primeng/card';
 import { PaginatorModule, PaginatorState } from 'primeng/paginator';
 import { TagModule } from 'primeng/tag';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
 import { HospedesService } from '../../services/hospedes.service';
 
 @Component({
   selector: 'app-hospedes-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, ButtonModule, PanelModule, CardModule, PaginatorModule, TagModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    ButtonModule,
+    PanelModule,
+    PaginatorModule,
+    TagModule,
+    DialogModule,
+    InputTextModule,
+  ],
   templateUrl: './hospedes-list.html',
   styleUrls: ['./hospedes-list.scss']
 })
@@ -19,7 +31,10 @@ export class HospedesListComponent implements OnInit {
   hospedes: any[] = [];
   buscandoCompatibilidade: Record<number, boolean> = {};
   page = 0;
-  rows = 9;
+  rows = 10;
+  filterTerm = '';
+  detailDialogVisible = false;
+  selectedHospede: any | null = null;
 
   constructor(private service: HospedesService) {}
 
@@ -31,8 +46,34 @@ export class HospedesListComponent implements OnInit {
   }
 
   get paginatedHospedes(): any[] {
+    const filtered = this.filteredHospedes;
     const start = this.page * this.rows;
-    return this.hospedes.slice(start, start + this.rows);
+    return filtered.slice(start, start + this.rows);
+  }
+
+  get totalRecords(): number {
+    return this.filteredHospedes.length;
+  }
+
+  get filteredHospedes(): any[] {
+    const term = this.filterTerm.trim().toLowerCase();
+
+    if (!term) {
+      return this.hospedes;
+    }
+
+    return this.hospedes.filter(hospede => {
+      const values = [
+        hospede?.nome_completo,
+        hospede?.email,
+        hospede?.telefone,
+        hospede?.apto,
+        hospede?.codigo,
+        hospede?.status,
+      ];
+
+      return values.some(value => this.includesTerm(value, term));
+    });
   }
 
   buscarCompatibilidade(hospede: any): void {
@@ -71,6 +112,11 @@ export class HospedesListComponent implements OnInit {
     });
   }
 
+  onFilterChange(): void {
+    this.page = 0;
+    this.adjustPage();
+  }
+
   onPageChange(event: PaginatorState): void {
     if (typeof event.page === 'number') {
       this.page = event.page;
@@ -82,8 +128,26 @@ export class HospedesListComponent implements OnInit {
     }
   }
 
+  showDetalhes(hospede: any): void {
+    this.selectedHospede = hospede;
+    this.detailDialogVisible = true;
+  }
+
+  onDialogHide(): void {
+    this.detailDialogVisible = false;
+    this.selectedHospede = null;
+  }
+
+  private includesTerm(value: unknown, term: string): boolean {
+    if (value === null || value === undefined) {
+      return false;
+    }
+
+    return String(value).toLowerCase().includes(term);
+  }
+
   private adjustPage(): void {
-    const totalPages = Math.ceil(this.hospedes.length / this.rows) || 1;
+    const totalPages = Math.ceil(this.totalRecords / this.rows) || 1;
     const lastPage = Math.max(totalPages - 1, 0);
     if (this.page > lastPage) {
       this.page = lastPage;
