@@ -11,6 +11,33 @@ const router = express.Router();
 
 let colunasExtrasVerificadas = false;
 
+function normalizarNomeColuna(coluna) {
+  if (!coluna) {
+    return '';
+  }
+
+  return String(coluna)
+    .trim()
+    .toLowerCase();
+}
+
+async function adicionarColunaSeNecessario(db, nomesExistentes, coluna, definicao) {
+  if (nomesExistentes.includes(coluna)) {
+    return;
+  }
+
+  try {
+    await db.query(`ALTER TABLE hospedes ADD COLUMN ${coluna} ${definicao}`);
+  } catch (err) {
+    if (!err || !err.message || !/duplicate column name/i.test(err.message)) {
+      throw err;
+    }
+    // Outro processo ou inicialização já pode ter criado a coluna.
+  }
+
+  nomesExistentes.push(coluna);
+}
+
 function normalizarDataOracle(valor) {
   if (!valor && valor !== 0) {
     return null;
@@ -67,15 +94,10 @@ async function garantirColunasExtras(db) {
   }
 
   const info = await db.query('PRAGMA table_info(hospedes)');
-  const nomesColunas = info.rows.map(coluna => coluna.name || coluna.NAME);
+  const nomesColunas = info.rows.map(coluna => normalizarNomeColuna(coluna.name || coluna.NAME));
 
-  if (!nomesColunas.includes('idhospede')) {
-    await db.query('ALTER TABLE hospedes ADD COLUMN idhospede TEXT');
-  }
-
-  if (!nomesColunas.includes('idreservasfront')) {
-    await db.query('ALTER TABLE hospedes ADD COLUMN idreservasfront TEXT');
-  }
+  await adicionarColunaSeNecessario(db, nomesColunas, 'idhospede', 'TEXT');
+  await adicionarColunaSeNecessario(db, nomesColunas, 'idreservasfront', 'TEXT');
 
   colunasExtrasVerificadas = true;
 }
