@@ -60,12 +60,17 @@ ORACLE_POOL_MIN=0
 ORACLE_POOL_MAX=4
 ORACLE_POOL_INCREMENT=1
 ORACLE_POOL_TIMEOUT=60
+# Oracle Client (opcional)
+ORACLE_CLIENT_LIB_DIR=C:\\oracle\\instantclient_19_23
+ORACLE_DRIVER_MODE=thick
 ```
 
 Para o frontend em produção, defina a variável de ambiente `NG_APP_API_URL` com a URL da API antes de executar o build.
 Em desenvolvimento, o arquivo `src/environments/environment.ts` já utiliza `http://localhost:3000` por padrão.
 
 > ℹ️ As variáveis `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE_NAME`, `ORACLE_USER` e `ORACLE_PASSWORD` são obrigatórias apenas quando a integração Oracle estiver habilitada. As variáveis de pool são opcionais e permitem ajustar o comportamento do `oracledb.createPool`.
+>
+> Para bancos Oracle 12c ou superiores, como o 19c, recomenda-se instalar o [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html) na máquina onde a API será executada e definir `ORACLE_CLIENT_LIB_DIR` apontando para a pasta de instalação. Isso habilita o modo Thick do driver Node-oracledb, necessário para autenticar usuários com password verifiers modernos. Caso queira forçar o modo Thin (por exemplo, após ajustar o usuário para um password verifier compatível), defina `ORACLE_DRIVER_MODE=thin`.
 
 ## 🚀 Executando o Projeto
 

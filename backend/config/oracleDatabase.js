@@ -7,6 +7,41 @@
 const oracledb = require('oracledb');
 
 let oraclePool = null;
+let oracleClientInitAttempted = false;
+
+function initOracleClientIfNeeded() {
+  if (oracleClientInitAttempted) {
+    return;
+  }
+
+  oracleClientInitAttempted = true;
+
+  const driverMode = (process.env.ORACLE_DRIVER_MODE || '').trim().toLowerCase();
+  if (driverMode === 'thin') {
+    console.log('ℹ️  Oracle Database configurado para utilizar o driver Thin.');
+    return;
+  }
+
+  const libDir = (process.env.ORACLE_CLIENT_LIB_DIR || '').trim();
+
+  try {
+    if (libDir) {
+      oracledb.initOracleClient({ libDir });
+    } else {
+      oracledb.initOracleClient();
+    }
+    console.log('✅ Oracle Client nativo inicializado (modo Thick habilitado)');
+  } catch (error) {
+    const contextMessage = libDir
+      ? `usando ORACLE_CLIENT_LIB_DIR="${libDir}"`
+      : 'automaticamente';
+    console.warn(
+      `⚠️  Não foi possível inicializar o Oracle Client nativo ${contextMessage}. O driver permanecerá em modo Thin. ` +
+        'Configure o Oracle Instant Client e defina ORACLE_CLIENT_LIB_DIR caso necessário.',
+      error.message
+    );
+  }
+}
 
 function getOracleConfig() {
   const host = process.env.ORACLE_HOST;
@@ -53,6 +88,7 @@ async function initOraclePool() {
   }
 
   try {
+    initOracleClientIfNeeded();
     oraclePool = await oracledb.createPool({
       user: config.user,
       password: config.password,
@@ -68,6 +104,13 @@ async function initOraclePool() {
   } catch (error) {
     oraclePool = null;
     console.warn('⚠️  Falha ao inicializar pool Oracle. Recursos dependentes do Oracle ficarão indisponíveis. Detalhes:', error.message);
+    if (error.message && error.message.includes('NJS-116')) {
+      console.warn(
+        '💡  Dica: Esse erro ocorre quando o modo Thin não suporta o password verifier do usuário. ' +
+          'Instale o Oracle Instant Client 19c (ou superior) e defina a variável ORACLE_CLIENT_LIB_DIR, ou configure ORACLE_DRIVER_MODE=thin '
+          + 'para forçar o modo Thin após ajustar o usuário no banco.'
+      );
+    }
     return null;
   }
 }
