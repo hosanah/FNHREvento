@@ -160,7 +160,12 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
     });
 
     if (!reservas || reservas.length === 0) {
-      return res.status(404).json({ error: 'Nenhuma reserva compatível encontrada no Oracle' });
+      return res.json({
+        message: 'Nenhuma reserva compatível encontrada no Oracle',
+        hospede,
+        reserva: null,
+        compatibilidadeEncontrada: false
+      });
     }
 
     const reserva = reservas[0];
@@ -180,7 +185,8 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
     res.json({
       message: 'Reserva compatível encontrada e ficha atualizada',
       hospede: atualizado.rows[0],
-      reserva
+      reserva,
+      compatibilidadeEncontrada: true
     });
   } catch (err) {
     if (err && err.message && err.message.includes('Oracle Database indisponível')) {
