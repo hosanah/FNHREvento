@@ -20,7 +20,8 @@ const authRoutes = require('./routes/auth');
 const hospedeRoutes = require('./routes/hospedes');
 
 // Importar configuração do banco de dados
-const { initDatabase } = require('./config/database');
+const { initSqliteDatabase, closeSqliteDatabase } = require('./config/database');
+const { initOraclePool, closeOraclePool } = require('./config/oracleDatabase');
 
 const app = express();
 // Confiar no primeiro proxy para que o express-rate-limit
@@ -97,14 +98,29 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 // Inicializar banco de dados e servidor
+let serverInstance;
+let shuttingDown = false;
+
 async function startServer() {
   try {
-    // Inicializar banco de dados
-    await initDatabase();
-    console.log('✅ FNRHEvento: banco de dados inicializado com sucesso');
-    
+    // Inicializar banco de dados SQLite
+    await initSqliteDatabase();
+    console.log('✅ FNRHEvento: banco SQLite inicializado com sucesso');
+
+    // Inicializar pool Oracle (opcional)
+    try {
+      const pool = await initOraclePool();
+      if (pool) {
+        console.log('✅ FNRHEvento: pool Oracle disponível');
+      } else {
+        console.log('ℹ️ FNRHEvento: Oracle não configurado ou indisponível. Continuando apenas com SQLite.');
+      }
+    } catch (error) {
+      console.warn('⚠️ FNRHEvento: erro inesperado ao verificar o Oracle. Continuando sem recursos Oracle.', error);
+    }
+
     // Iniciar servidor
-    app.listen(PORT, '0.0.0.0', () => {
+    serverInstance = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 FNRHEvento rodando na porta ${PORT}`);
       console.log(`📍 FNRHEvento URL: http://localhost:${PORT}`);
       console.log(`🌍 FNRHEvento ambiente: ${process.env.NODE_ENV}`);
@@ -112,19 +128,58 @@ async function startServer() {
     });
   } catch (error) {
     console.error('❌ FNRHEvento: erro ao iniciar servidor:', error);
+    try {
+      await closeOraclePool();
+    } catch (oracleError) {
+      console.error('❌ FNRHEvento: erro ao encerrar pool Oracle durante falha de inicialização:', oracleError);
+    }
+    try {
+      await closeSqliteDatabase();
+    } catch (sqliteError) {
+      console.error('❌ FNRHEvento: erro ao encerrar SQLite durante falha de inicialização:', sqliteError);
+    }
     process.exit(1);
   }
 }
 
+async function shutdown(signal) {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+
+  console.log(`🛑 FNRHEvento: recebido ${signal}, encerrando servidor...`);
+
+  if (serverInstance) {
+    await new Promise(resolve => {
+      serverInstance.close(() => {
+        console.log('🛑 FNRHEvento: servidor HTTP encerrado');
+        resolve();
+      });
+    });
+  }
+
+  const closeOperations = [
+    closeSqliteDatabase().catch(error => {
+      console.error('❌ FNRHEvento: erro ao encerrar SQLite:', error);
+    }),
+    closeOraclePool().catch(error => {
+      console.error('❌ FNRHEvento: erro ao encerrar pool Oracle:', error);
+    })
+  ];
+
+  await Promise.all(closeOperations);
+  console.log('👋 FNRHEvento: recursos liberados com sucesso');
+  process.exit(0);
+}
+
 // Tratamento de sinais para encerramento graceful
 process.on('SIGTERM', () => {
-  console.log('🛑 FNRHEvento: recebido SIGTERM, encerrando servidor...');
-  process.exit(0);
+  shutdown('SIGTERM');
 });
 
 process.on('SIGINT', () => {
-  console.log('🛑 FNRHEvento: recebido SIGINT, encerrando servidor...');
-  process.exit(0);
+  shutdown('SIGINT');
 });
 
 // Iniciar servidor
