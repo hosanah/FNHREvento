@@ -50,7 +50,9 @@ DB_PASSWORD=postgres
 CORS_ORIGIN=http://localhost:4200
 
 # Oracle Database (opcional)
-ORACLE_CONNECT_STRING=localhost/orclpdb1
+ORACLE_HOST=localhost
+ORACLE_PORT=1521
+ORACLE_SERVICE_NAME=orclpdb1
 ORACLE_USER=meu_usuario
 ORACLE_PASSWORD=minha_senha
 # Ajustes opcionais do pool Oracle
@@ -63,7 +65,7 @@ ORACLE_POOL_TIMEOUT=60
 Para o frontend em produção, defina a variável de ambiente `NG_APP_API_URL` com a URL da API antes de executar o build.
 Em desenvolvimento, o arquivo `src/environments/environment.ts` já utiliza `http://localhost:3000` por padrão.
 
-> ℹ️ As variáveis `ORACLE_CONNECT_STRING`, `ORACLE_USER` e `ORACLE_PASSWORD` são obrigatórias apenas quando a integração Oracle estiver habilitada. As variáveis de pool são opcionais e permitem ajustar o comportamento do `oracledb.createPool`.
+> ℹ️ As variáveis `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE_NAME`, `ORACLE_USER` e `ORACLE_PASSWORD` são obrigatórias apenas quando a integração Oracle estiver habilitada. As variáveis de pool são opcionais e permitem ajustar o comportamento do `oracledb.createPool`.
 
 ## 🚀 Executando o Projeto
 

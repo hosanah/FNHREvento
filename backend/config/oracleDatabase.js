@@ -9,10 +9,18 @@ const oracledb = require('oracledb');
 let oraclePool = null;
 
 function getOracleConfig() {
+  const host = process.env.ORACLE_HOST;
+  const port = (process.env.ORACLE_PORT || '1521').toString().trim();
+  const serviceName = process.env.ORACLE_SERVICE_NAME;
+  const connectString = host && port && serviceName ? `${host}:${port}/${serviceName}` : null;
+
   return {
     user: process.env.ORACLE_USER,
     password: process.env.ORACLE_PASSWORD,
-    connectString: process.env.ORACLE_CONNECT_STRING,
+    host,
+    port,
+    serviceName,
+    connectString,
     poolMin: parseInt(process.env.ORACLE_POOL_MIN || '0', 10),
     poolMax: parseInt(process.env.ORACLE_POOL_MAX || '4', 10),
     poolIncrement: parseInt(process.env.ORACLE_POOL_INCREMENT || '1', 10),
@@ -21,7 +29,14 @@ function getOracleConfig() {
 }
 
 function isOracleConfigured(config) {
-  return Boolean(config.user && config.password && config.connectString);
+  return Boolean(
+    config.user &&
+    config.password &&
+    config.host &&
+    config.port &&
+    config.serviceName &&
+    config.connectString
+  );
 }
 
 async function initOraclePool() {
@@ -31,7 +46,9 @@ async function initOraclePool() {
 
   const config = getOracleConfig();
   if (!isOracleConfigured(config)) {
-    console.warn('⚠️  Oracle Database não configurado. Defina ORACLE_CONNECT_STRING, ORACLE_USER e ORACLE_PASSWORD para habilitar.');
+    console.warn(
+      '⚠️  Oracle Database não configurado. Defina ORACLE_HOST, ORACLE_PORT, ORACLE_SERVICE_NAME, ORACLE_USER e ORACLE_PASSWORD para habilitar.'
+    );
     return null;
   }
 
