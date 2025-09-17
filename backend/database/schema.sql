@@ -39,5 +39,7 @@ CREATE TABLE IF NOT EXISTS hospedes (
   sexo TEXT,
   entrada TEXT,
   saida TEXT,
-  status TEXT
+  status TEXT,
+  idhospede TEXT,
+  idreservasfront TEXT
 );

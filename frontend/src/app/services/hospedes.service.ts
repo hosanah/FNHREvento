@@ -19,6 +19,10 @@ export class HospedesService {
     return this.http.get<any[]>(this.baseUrl);
   }
 
+  buscarCompatibilidade(id: number): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/${id}/compatibilidade`, {});
+  }
+
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }
