@@ -1,6 +1,7 @@
+'use strict';
+
 /**
- * Configuração do banco de dados SQLite
- * Inclui inicialização e operações básicas
+ * Utilitários de configuração do banco SQLite
  */
 
 const sqlite3 = require('sqlite3').verbose();
@@ -8,108 +9,116 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
-let db = null;
+let sqliteDb = null;
 
-function getConfig() {
+function getSqliteConfig() {
   return {
     filename: process.env.DB_FILE || path.join(__dirname, '../database/database.sqlite')
   };
 }
 
-/**
- * Conectar ao banco de dados SQLite
- */
-async function connectDatabase() {
-  const config = getConfig();
+async function connectSqliteDatabase() {
+  if (sqliteDb) {
+    return sqliteDb;
+  }
+
+  const config = getSqliteConfig();
   await new Promise((resolve, reject) => {
-    db = new sqlite3.Database(config.filename, err => {
+    sqliteDb = new sqlite3.Database(config.filename, err => {
       if (err) {
-        console.error('❌ Erro ao conectar com o banco de dados:', err.message);
+        console.error('❌ Erro ao conectar com o banco de dados SQLite:', err.message);
         reject(err);
       } else {
-        db.run('PRAGMA foreign_keys = ON');
+        sqliteDb.run('PRAGMA foreign_keys = ON');
         console.log('✅ Conectado ao banco de dados SQLite');
+        resolve(sqliteDb);
+      }
+    });
+  });
+
+  return sqliteDb;
+}
+
+async function createSqliteTables() {
+  const schemaPath = path.join(__dirname, '../database/schema.sql');
+  const schema = fs.readFileSync(schemaPath, 'utf8');
+
+  await new Promise((resolve, reject) => {
+    sqliteDb.exec(schema, err => {
+      if (err) {
+        reject(err);
+      } else {
         resolve();
       }
     });
   });
+
+  console.log('✅ Tabelas SQLite criadas/verificadas');
 }
 
-/**
- * Criar tabelas necessárias carregando o schema do projeto
- */
-async function createTables() {
-  const schemaPath = path.join(__dirname, '../database/schema.sql');
-  const schema = fs.readFileSync(schemaPath, 'utf8');
+async function createSqliteDefaultUser() {
   await new Promise((resolve, reject) => {
-    db.exec(schema, err => {
-      if (err) return reject(err);
-      resolve();
-    });
-  });
-  console.log('✅ Tabelas criadas/verificadas');
-}
-
-/**
- * Criar usuário padrão para testes
- */
-async function createDefaultUser() {
-  await new Promise((resolve, reject) => {
-    db.get('SELECT id FROM users WHERE username = ?', ['admin'], async (err, row) => {
+    sqliteDb.get('SELECT id FROM users WHERE username = ?', ['admin'], async (err, row) => {
       if (err) {
         console.error('❌ Erro ao verificar usuário padrão:', err.message);
         return reject(err);
       }
+
       if (row) {
         console.log('✅ Usuário admin já existe');
         return resolve();
       }
-      const hashedPassword = await bcrypt.hash('admin123', 12);
-      db.run(
-        'INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)',
-        ['admin', 'admin@example.com', hashedPassword, 'Administrador'],
-        function(err) {
-          if (err) return reject(err);
-          console.log('✅ Usuário admin criado com sucesso');
-          console.log('📧 Email: admin@example.com');
-          console.log('🔑 Senha: admin123');
-          resolve();
-        }
-      );
+
+      try {
+        const hashedPassword = await bcrypt.hash('admin123', 12);
+        sqliteDb.run(
+          'INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)',
+          ['admin', 'admin@example.com', hashedPassword, 'Administrador'],
+          function(err) {
+            if (err) {
+              reject(err);
+            } else {
+              console.log('✅ Usuário admin criado com sucesso');
+              console.log('📧 Email: admin@example.com');
+              console.log('🔑 Senha: admin123');
+              resolve();
+            }
+          }
+        );
+      } catch (hashError) {
+        reject(hashError);
+      }
     });
   });
 }
 
-/**
- * Inicializar banco de dados
- */
-async function initDatabase() {
-  await connectDatabase();
-  await createTables();
-  await createDefaultUser();
-  console.log('🎉 Banco de dados inicializado completamente');
+async function initSqliteDatabase() {
+  await connectSqliteDatabase();
+  await createSqliteTables();
+  await createSqliteDefaultUser();
+  console.log('🎉 Banco de dados SQLite inicializado completamente');
 }
 
-/**
- * Obter objeto de acesso ao banco
- */
-function getDatabase() {
-  if (!db) {
-    throw new Error('Banco de dados não inicializado');
-  }
+function createQueryHelpers(database) {
   return {
     query(sql, params = []) {
       return new Promise((resolve, reject) => {
         const isSelect = /^\s*SELECT/i.test(sql);
         if (isSelect) {
-          db.all(sql, params, (err, rows) => {
-            if (err) return reject(err);
-            resolve({ rows, rowCount: rows.length });
+          database.all(sql, params, (err, rows) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve({ rows, rowCount: rows.length });
+            }
           });
         } else {
-          db.run(sql, params, function(err) {
-            if (err) return reject(err);
-            resolve({ rows: [], rowCount: this.changes, lastID: this.lastID });
+          database.run(sql, params, function(err) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve({ rows: [], rowCount: this.changes, lastID: this.lastID });
+            }
           });
         }
       });
@@ -119,47 +128,67 @@ function getDatabase() {
         callback = params;
         params = [];
       }
-      db.get(sql, params, (err, row) => callback(err, row));
+      database.get(sql, params, (err, row) => callback(err, row));
     },
     all(sql, params, callback) {
       if (typeof params === 'function') {
         callback = params;
         params = [];
       }
-      db.all(sql, params, (err, rows) => callback(err, rows));
+      database.all(sql, params, (err, rows) => callback(err, rows));
     },
     run(sql, params, callback) {
       if (typeof params === 'function') {
         callback = params;
         params = [];
       }
-      db.run(sql, params, function(err) {
-        if (callback) callback.call(this, err);
+      database.run(sql, params, function(err) {
+        if (callback) {
+          callback.call(this, err);
+        }
       });
     }
   };
 }
 
-/**
- * Fechar conexão com banco de dados
- */
-function closeDatabase() {
-  return db
-    ? new Promise((resolve, reject) => {
-        db.close(err => {
-          if (err) return reject(err);
-          resolve();
-        });
-      })
-    : Promise.resolve();
+function getSqliteDb() {
+  if (!sqliteDb) {
+    throw new Error('Banco de dados SQLite não inicializado');
+  }
+  return createQueryHelpers(sqliteDb);
+}
+
+async function closeSqliteDatabase() {
+  if (!sqliteDb) {
+    return;
+  }
+
+  await new Promise((resolve, reject) => {
+    sqliteDb.close(err => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+
+  sqliteDb = null;
+  console.log('✅ Conexão com SQLite encerrada');
 }
 
 module.exports = {
-  initDatabase,
-  getDatabase,
-  closeDatabase,
-  connectDatabase,
-  createTables,
-  createDefaultUser
+  initSqliteDatabase,
+  getSqliteDb,
+  closeSqliteDatabase,
+  connectSqliteDatabase,
+  createSqliteTables,
+  createSqliteDefaultUser,
+  // aliases legacy
+  initDatabase: initSqliteDatabase,
+  getDatabase: getSqliteDb,
+  closeDatabase: closeSqliteDatabase,
+  connectDatabase: connectSqliteDatabase,
+  createTables: createSqliteTables,
+  createDefaultUser: createSqliteDefaultUser
 };
-

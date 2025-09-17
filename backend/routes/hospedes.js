@@ -3,7 +3,7 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
-const { getDatabase } = require('../config/database');
+const { getSqliteDb } = require('../config/database');
 
 const upload = multer({ dest: path.join(__dirname, '../uploads') });
 const router = express.Router();
@@ -19,7 +19,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-    const db = getDatabase();
+    const db = getSqliteDb();
     const inserts = [];
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
@@ -42,7 +42,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
 // Listar hóspedes
 router.get('/', async (req, res, next) => {
   try {
-    const db = getDatabase();
+    const db = getSqliteDb();
     const result = await db.query('SELECT * FROM hospedes');
     res.json(result.rows);
   } catch (err) {
@@ -53,7 +53,7 @@ router.get('/', async (req, res, next) => {
 // Excluir hóspede
 router.delete('/:id', async (req, res, next) => {
   try {
-    const db = getDatabase();
+    const db = getSqliteDb();
     const result = await db.query('DELETE FROM hospedes WHERE id = ?', [req.params.id]);
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Hóspede não encontrado' });

@@ -6,7 +6,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { getDatabase } = require('../config/database');
+const { getSqliteDb } = require('../config/database');
 const { generateToken, authenticateToken, verifyToken, generateRefreshToken, verifyRefreshToken } = require('../middleware/auth');
 const { ApiError } = require('../middleware/errorHandler');
 const { requireApiKey } = require('../middleware/apiKeyAuth');
@@ -27,7 +27,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     // Buscar usuário no banco de dados
-    const db = getDatabase();
+    const db = getSqliteDb();
     
     db.get(
       'SELECT id, username, email, password, full_name, is_active FROM users WHERE (username = ? OR email = ?) AND is_active = 1',
@@ -128,7 +128,7 @@ router.post('/logout', authenticateToken, async (req, res, next) => {
     }
 
     const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-    const db = getDatabase();
+    const db = getSqliteDb();
     const result = await db.query(
       'UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE token_hash = ?',
       [tokenHash]
@@ -233,7 +233,7 @@ router.post('/register', requireApiKey, async (req, res, next) => {
       );
     }
 
-    const db = getDatabase();
+    const db = getSqliteDb();
 
     // Verificar se usuário já existe
     db.get(
@@ -306,7 +306,7 @@ router.post('/reset-password', requireApiKey, async (req, res, next) => {
       return next(new ApiError(400, 'Senha deve ter pelo menos 6 caracteres', 'PASSWORD_TOO_SHORT'));
     }
 
-    const db = getDatabase();
+    const db = getSqliteDb();
     db.get('SELECT id FROM users WHERE email = ?', [email], async (err, user) => {
       if (err) {
         console.error('❌ Erro ao buscar usuário para reset de senha:', err.message);

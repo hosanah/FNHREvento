@@ -5,7 +5,7 @@
 
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { getDatabase } = require('../config/database');
+const { getSqliteDb } = require('../config/database');
 const { ApiError } = require('./errorHandler');
 
 /**
@@ -39,7 +39,7 @@ function authenticateToken(req, res, next) {
 
     try {
       // Verificar se usuário ainda existe no banco
-      const db = getDatabase();
+      const db = getSqliteDb();
       
       db.get(
         'SELECT id, username, email, full_name, is_active FROM users WHERE id = ? AND is_active = 1',
@@ -95,7 +95,7 @@ function optionalAuth(req, res, next) {
     }
 
     try {
-      const db = getDatabase();
+      const db = getSqliteDb();
       
       db.get(
         'SELECT id, username, email, full_name FROM users WHERE id = ? AND is_active = 1',
@@ -148,7 +148,7 @@ async function generateRefreshToken(userId) {
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 dias
 
-  const db = getDatabase();
+  const db = getSqliteDb();
   await db.query(
     'INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
     [userId, tokenHash, expiresAt]
@@ -163,7 +163,7 @@ async function generateRefreshToken(userId) {
 async function verifyRefreshToken(token) {
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const db = getDatabase();
+    const db = getSqliteDb();
     const result = await db.query(
       `SELECT s.user_id, u.username
        FROM sessions s
