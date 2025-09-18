@@ -47,7 +47,7 @@
             <td>{{ h.telefone || '-' }}</td>
             <td>{{ h.entrada || '-' }}</td>
             <td>{{ h.saida || '-' }}</td>
-            <td>{{ h.status || '-' }}</td>
+            <td>{{ getStatusLabel(h.status) }}</td>
             <td>
               <div class="actions">
                 <p-button icon="pi pi-search" rounded (click)="showDetalhes(h)" [text]="true"></p-button>
@@ -169,7 +169,7 @@
     </div>
     <div class="info-item">
       <span class="label">Status</span>
-      <span class="value">{{ selectedHospede.status || '-' }}</span>
+      <span class="value">{{ getStatusLabel(selectedHospede.status) }}</span>
     </div>
     <div class="info-item">
       <span class="label">ID Hóspede Oracle</span>

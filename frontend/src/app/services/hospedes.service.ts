@@ -23,6 +23,10 @@ export class HospedesService {
     return this.http.post<any>(`${this.baseUrl}/${id}/compatibilidade`, {});
   }
 
+  marcarIntegrado(id: number, payload: { idhospede?: string; idreservasfront?: string } = {}): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/${id}/integrar`, payload);
+  }
+
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }

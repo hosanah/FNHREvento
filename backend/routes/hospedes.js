@@ -124,7 +124,28 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       inserts.push(db.query(
         `INSERT INTO hospedes (codigo, apto, nome_completo, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, data_nascimento, sexo, entrada, saida, status, idhospede, idreservasfront)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [codigo, apto, nomeCompleto, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, dataNascimento, sexo, entrada, saida, 1, null, null]
+        [
+          codigo,
+          apto,
+          nomeCompleto,
+          endereco,
+          estado,
+          email,
+          profissao,
+          cidade,
+          identidade,
+          cpf,
+          telefone,
+          pais,
+          cep,
+          dataNascimento,
+          sexo,
+          entrada,
+          saida,
+          'importado',
+          null,
+          null
+        ]
       ));
     }
     await Promise.all(inserts);
@@ -182,9 +203,12 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
     });
 
     if (!reservas || reservas.length === 0) {
+      await db.query('UPDATE hospedes SET status = ? WHERE id = ?', ['Não Compativel', req.params.id]);
+      const atualizado = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+
       return res.json({
         message: 'Nenhuma reserva compatível encontrada no Oracle',
-        hospede,
+        hospede: atualizado.rows[0],
         reserva: null,
         compatibilidadeEncontrada: false
       });
@@ -196,9 +220,10 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
     const idReservasFrontOracle =
       reserva.IDRESERVASFRONT ?? reserva.idreservasfront ?? reserva.IdReservasFront ?? reserva.idReservasFront ?? null;
 
-    await db.query('UPDATE hospedes SET idhospede = ?, idreservasfront = ? WHERE id = ?', [
+    await db.query('UPDATE hospedes SET idhospede = ?, idreservasfront = ?, status = ? WHERE id = ?', [
       idHospedeOracle,
       idReservasFrontOracle,
+      'compativel',
       req.params.id
     ]);
 
@@ -214,6 +239,46 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
     if (err && err.message && err.message.includes('Oracle Database indisponível')) {
       return res.status(503).json({ error: err.message });
     }
+    next(err);
+  }
+});
+
+// Marcar hóspede como integrado ao PMS
+router.post('/:id/integrar', async (req, res, next) => {
+  try {
+    const db = getSqliteDb();
+    await garantirColunasExtras(db);
+
+    const hospedeResult = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+
+    if (hospedeResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Hóspede não encontrado' });
+    }
+
+    const atualizacoes = ['status = ?'];
+    const parametros = ['integrado'];
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'idhospede')) {
+      atualizacoes.push('idhospede = ?');
+      parametros.push(req.body.idhospede);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'idreservasfront')) {
+      atualizacoes.push('idreservasfront = ?');
+      parametros.push(req.body.idreservasfront);
+    }
+
+    parametros.push(req.params.id);
+
+    await db.query(`UPDATE hospedes SET ${atualizacoes.join(', ')} WHERE id = ?`, parametros);
+
+    const atualizado = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+
+    res.json({
+      message: 'Hóspede marcado como integrado ao PMS',
+      hospede: atualizado.rows[0]
+    });
+  } catch (err) {
     next(err);
   }
 });
