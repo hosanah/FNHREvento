@@ -37,6 +37,14 @@ export class HospedesListComponent implements OnInit {
   detailDialogVisible = false;
   selectedHospede: any | null = null;
 
+  private readonly statusLabels: Record<string, string> = {
+    importado: 'Importado',
+    compativel: 'Compatível',
+    'não compativel': 'Não Compatível',
+    'nao compativel': 'Não Compatível',
+    integrado: 'Integrado'
+  };
+
   constructor(private service: HospedesService) {}
 
   ngOnInit(): void {
@@ -174,6 +182,28 @@ export class HospedesListComponent implements OnInit {
   onDialogHide(): void {
     this.detailDialogVisible = false;
     this.selectedHospede = null;
+  }
+
+  getStatusLabel(status: unknown): string {
+    if (status === null || status === undefined || status === '') {
+      return '-';
+    }
+
+    const texto = String(status).trim();
+    if (!texto) {
+      return '-';
+    }
+
+    const normalizado = texto.toLowerCase();
+    const label = this.statusLabels[normalizado];
+    if (label) {
+      return label;
+    }
+
+    return texto
+      .split(/\s+/)
+      .map(parte => parte.charAt(0).toUpperCase() + parte.slice(1))
+      .join(' ');
   }
 
   private includesTerm(value: unknown, term: string): boolean {
