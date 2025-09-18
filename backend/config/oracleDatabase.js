@@ -9,6 +9,14 @@ const oracledb = require('oracledb');
 let oraclePool = null;
 let oracleClientInitAttempted = false;
 
+function validarDataParametro(nomeParametro, valor) {
+  if (!(valor instanceof Date) || Number.isNaN(valor.getTime())) {
+    throw new Error(`${nomeParametro} deve ser uma data válida (Date)`);
+  }
+
+  return new Date(valor.getTime());
+}
+
 function initOracleClientIfNeeded() {
   if (oracleClientInitAttempted) {
     return;
@@ -138,6 +146,8 @@ async function buscarReservaOracle({
   nomeHospede,
   sobrenomeHospede
 }) {
+  const chegada = validarDataParametro('dataChegadaPrevista', dataChegadaPrevista);
+  const partida = validarDataParametro('dataPartidaPrevista', dataPartidaPrevista);
   const connection = await getOracleConnection();
 
   try {
@@ -159,8 +169,8 @@ async function buscarReservaOracle({
           AND H.NOME = :nomeHospede
           AND H.SOBRENOME = :sobrenomeHospede`,
       {
-        dataChegadaPrevista,
-        dataPartidaPrevista,
+        dataChegadaPrevista: { type: oracledb.DATE, val: chegada },
+        dataPartidaPrevista: { type: oracledb.DATE, val: partida },
         nomeHospede,
         sobrenomeHospede
       },

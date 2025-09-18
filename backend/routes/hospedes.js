@@ -38,32 +38,71 @@ async function adicionarColunaSeNecessario(db, nomesExistentes, coluna, definica
   nomesExistentes.push(coluna);
 }
 
-function normalizarDataOracle(valor) {
-  if (!valor && valor !== 0) {
+const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
+
+function criarDataUtc(year, month, day) {
+  const data = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(data.getTime())) {
+    return null;
+  }
+  return data;
+}
+
+function converterNumeroExcelParaData(numero) {
+  if (!Number.isFinite(numero)) {
     return null;
   }
 
-  const texto = String(valor).trim();
+  const baseExcel = Date.UTC(1899, 11, 30);
+  const diasInteiros = Math.trunc(numero);
+  const fracaoDia = numero - diasInteiros;
+  const dataCalculada = new Date(baseExcel + diasInteiros * UM_DIA_EM_MS + Math.round(fracaoDia * UM_DIA_EM_MS));
+
+  if (Number.isNaN(dataCalculada.getTime())) {
+    return null;
+  }
+
+  return criarDataUtc(dataCalculada.getUTCFullYear(), dataCalculada.getUTCMonth() + 1, dataCalculada.getUTCDate());
+}
+
+function normalizarDataOracle(valor) {
+  if (valor instanceof Date) {
+    if (Number.isNaN(valor.getTime())) {
+      return null;
+    }
+    return criarDataUtc(valor.getUTCFullYear(), valor.getUTCMonth() + 1, valor.getUTCDate());
+  }
+
+  if (typeof valor === 'number') {
+    return converterNumeroExcelParaData(valor);
+  }
+
+  const texto = String(valor ?? '').trim();
   if (!texto) {
     return null;
   }
 
+  if (/^-?\d+(?:\.\d+)?$/.test(texto)) {
+    const numero = parseFloat(texto);
+    const dataNumero = converterNumeroExcelParaData(numero);
+    if (dataNumero) {
+      return dataNumero;
+    }
+  }
+
   const isoMatch = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    return criarDataUtc(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
   }
 
   const brMatch = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (brMatch) {
-    return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+    return criarDataUtc(Number(brMatch[3]), Number(brMatch[2]), Number(brMatch[1]));
   }
 
   const parsed = new Date(texto);
   if (!Number.isNaN(parsed.getTime())) {
-    const year = parsed.getFullYear();
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const day = String(parsed.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return criarDataUtc(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, parsed.getUTCDate());
   }
 
   return null;
