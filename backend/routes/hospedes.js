@@ -12,19 +12,12 @@ const router = express.Router();
 let colunasExtrasVerificadas = false;
 
 function normalizarNomeColuna(coluna) {
-  if (!coluna) {
-    return '';
-  }
-
-  return String(coluna)
-    .trim()
-    .toLowerCase();
+  if (!coluna) return '';
+  return String(coluna).trim().toLowerCase();
 }
 
 async function adicionarColunaSeNecessario(db, nomesExistentes, coluna, definicao) {
-  if (nomesExistentes.includes(coluna)) {
-    return;
-  }
+  if (nomesExistentes.includes(coluna)) return;
 
   try {
     await db.query(`ALTER TABLE hospedes ADD COLUMN ${coluna} ${definicao}`);
@@ -42,85 +35,41 @@ const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
 
 function criarDataUtc(year, month, day) {
   const data = new Date(Date.UTC(year, month - 1, day));
-  if (Number.isNaN(data.getTime())) {
-    return null;
-  }
+  if (Number.isNaN(data.getTime())) return null;
   return data;
 }
 
 function converterNumeroExcelParaData(numero) {
-  if (!Number.isFinite(numero)) {
-    return null;
-  }
+  if (!Number.isFinite(numero)) return null;
 
   const baseExcel = Date.UTC(1899, 11, 30);
   const diasInteiros = Math.trunc(numero);
   const fracaoDia = numero - diasInteiros;
-  const dataCalculada = new Date(baseExcel + diasInteiros * UM_DIA_EM_MS + Math.round(fracaoDia * UM_DIA_EM_MS));
+  const dataCalculada = new Date(
+    baseExcel + diasInteiros * UM_DIA_EM_MS + Math.round(fracaoDia * UM_DIA_EM_MS)
+  );
 
-  if (Number.isNaN(dataCalculada.getTime())) {
-    return null;
-  }
+  if (Number.isNaN(dataCalculada.getTime())) return null;
 
-  return criarDataUtc(dataCalculada.getUTCFullYear(), dataCalculada.getUTCMonth() + 1, dataCalculada.getUTCDate());
+  return criarDataUtc(
+    dataCalculada.getUTCFullYear(),
+    dataCalculada.getUTCMonth() + 1,
+    dataCalculada.getUTCDate()
+  );
 }
 
-function normalizarDataOracle(valor) {
-  if (valor instanceof Date) {
-    if (Number.isNaN(valor.getTime())) {
-      return null;
-    }
-    return criarDataUtc(valor.getUTCFullYear(), valor.getUTCMonth() + 1, valor.getUTCDate());
-  }
-
-  if (typeof valor === 'number') {
-    return converterNumeroExcelParaData(valor);
-  }
-
-  const texto = String(valor ?? '').trim();
-  if (!texto) {
-    return null;
-  }
-
-  if (/^-?\d+(?:\.\d+)?$/.test(texto)) {
-    const numero = parseFloat(texto);
-    const dataNumero = converterNumeroExcelParaData(numero);
-    if (dataNumero) {
-      return dataNumero;
-    }
-  }
-
-  const isoMatch = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    return criarDataUtc(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
-  }
-
-  const brMatch = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if (brMatch) {
-    return criarDataUtc(Number(brMatch[3]), Number(brMatch[2]), Number(brMatch[1]));
-  }
-
-  const parsed = new Date(texto);
-  if (!Number.isNaN(parsed.getTime())) {
-    return criarDataUtc(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, parsed.getUTCDate());
-  }
-
-  return null;
+function isoToBr(dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr).trim());
+  if (!m) return null; // ou lance um erro, se preferir
+  const [, yyyy, mm, dd] = m;
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 function separarNomeSobrenome(nomeCompleto) {
-  if (!nomeCompleto) {
-    return { nome: null, sobrenome: null };
-  }
+  if (!nomeCompleto) return { nome: null, sobrenome: null };
 
-  const partes = String(nomeCompleto)
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (partes.length === 0) {
-    return { nome: null, sobrenome: null };
-  }
+  const partes = String(nomeCompleto).trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return { nome: null, sobrenome: null };
 
   const nome = partes.shift();
   const sobrenome = partes.length > 0 ? partes.join(' ') : nome;
@@ -128,12 +77,10 @@ function separarNomeSobrenome(nomeCompleto) {
 }
 
 async function garantirColunasExtras(db) {
-  if (colunasExtrasVerificadas) {
-    return;
-  }
+  if (colunasExtrasVerificadas) return;
 
   const info = await db.query('PRAGMA table_info(hospedes)');
-  const nomesColunas = info.rows.map(coluna => normalizarNomeColuna(coluna.name || coluna.NAME));
+  const nomesColunas = (info.rows || []).map(coluna => normalizarNomeColuna(coluna.name || coluna.NAME));
 
   await adicionarColunaSeNecessario(db, nomesColunas, 'idhospede', 'TEXT');
   await adicionarColunaSeNecessario(db, nomesColunas, 'idreservasfront', 'TEXT');
@@ -178,18 +125,21 @@ async function executarCompatibilidadeValida(db, hospede, { nome, sobrenome, dat
 
   return {
     message: 'Reserva compatível encontrada e ficha atualizada',
-    hospede: atualizado.rows[0] || hospede,
+    hospede: (atualizado.rows && atualizado.rows[0]) || hospede,
     reserva,
     compatibilidadeEncontrada: true
   };
 }
 
-// Importar planilha de hóspedes
+/**
+ * Importar planilha de hóspedes
+ */
 router.post('/import', upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Arquivo não enviado' });
     }
+
     const filePath = req.file.path;
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -202,7 +152,12 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
       if (!r || r.length === 0 || r.every(cell => cell === '')) continue;
-      const [codigo, apto, nomeCompleto, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, dataNascimento, sexo, entrada, saida] = r;
+
+      const [
+        codigo, apto, nomeCompleto, endereco, estado, email, profissao, cidade,
+        identidade, cpf, telefone, pais, cep, dataNascimento, sexo, entrada, saida
+      ] = r;
+
       inserts.push(db.query(
         `INSERT INTO hospedes (codigo, apto, nome_completo, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, data_nascimento, sexo, entrada, saida, status, idhospede, idreservasfront)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -230,52 +185,58 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
         ]
       ));
     }
+
     await Promise.all(inserts);
     fs.unlinkSync(filePath);
+
     res.json({ message: 'Importação concluída', inserted: inserts.length });
   } catch (err) {
     next(err);
   }
 });
 
-// Listar hóspedes
+/**
+ * Listar hóspedes
+ */
 router.get('/', async (req, res, next) => {
   try {
     const db = getSqliteDb();
     await garantirColunasExtras(db);
 
     const result = await db.query('SELECT * FROM hospedes');
-    res.json(result.rows);
+    res.json(result.rows || []);
   } catch (err) {
     next(err);
   }
 });
 
-// Buscar compatibilidade de reserva no Oracle e atualizar ficha
+/**
+ * Buscar compatibilidade de reserva no Oracle por ID e atualizar ficha
+ */
 router.post('/:id/compatibilidade', async (req, res, next) => {
   try {
     const db = getSqliteDb();
     await garantirColunasExtras(db);
 
     const hospedeResult = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+    const hospede =
+      (hospedeResult.rows && hospedeResult.rows[0]) ? hospedeResult.rows[0] : null;
 
-    if (hospedeResult.rowCount === 0) {
+    if (!hospede) {
       return res.status(404).json({ error: 'Hóspede não encontrado' });
     }
 
-    const hospede = hospedeResult.rows[0];
     const { nome, sobrenome } = separarNomeSobrenome(hospede.nome_completo);
-
     if (!nome || !sobrenome) {
       return res.status(400).json({ error: 'Nome do hóspede inválido para buscar no Oracle' });
     }
 
-    const dataChegadaPrevista = normalizarDataOracle(hospede.entrada);
-    const dataPartidaPrevista = normalizarDataOracle(hospede.saida);
-
+    const dataChegadaPrevista = isoToBr(hospede.entrada);
+    const dataPartidaPrevista = isoToBr(hospede.saida);
     if (!dataChegadaPrevista || !dataPartidaPrevista) {
       return res.status(400).json({ error: 'Datas de entrada/saída inválidas para buscar no Oracle' });
     }
+
     const resultado = await executarCompatibilidadeValida(db, hospede, {
       nome,
       sobrenome,
@@ -283,22 +244,22 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
       dataPartidaPrevista
     });
 
+    res.json(resultado);
+  } catch (err) {
+    if (err && err.message && err.message.includes('Oracle Database indisponível')) {
+      return res.status(503).json({ error: err.message });
+    }
+    next(err);
+  }
+});
+
+/**
+ * Buscar compatibilidade de reserva no Oracle em lote (todos os hóspedes)
+ */
 router.post('/compatibilidade', async (req, res, next) => {
   try {
     const db = getSqliteDb();
     await garantirColunasExtras(db);
-    const reserva = reservas[0];
-    const idHospedeOracle =
-      reserva.IDHOSPEDE ?? reserva.idhospede ?? reserva.IdHospede ?? reserva.idHospede ?? null;
-    const idReservasFrontOracle =
-      reserva.IDRESERVASFRONT ?? reserva.idreservasfront ?? reserva.IdReservasFront ?? reserva.idReservasFront ?? null;
-
-    await db.query('UPDATE hospedes SET idhospede = ?, idreservasfront = ?, status = ? WHERE id = ?', [
-      idHospedeOracle,
-      idReservasFrontOracle,
-      'compativel',
-      req.params.id
-    ]);
 
     const hospedesResult = await db.query('SELECT * FROM hospedes');
     const hospedes = hospedesResult.rows || [];
@@ -325,8 +286,8 @@ router.post('/compatibilidade', async (req, res, next) => {
         continue;
       }
 
-      const dataChegadaPrevista = normalizarDataOracle(hospede.entrada);
-      const dataPartidaPrevista = normalizarDataOracle(hospede.saida);
+      const dataChegadaPrevista = isoToBr(hospede.entrada);
+      const dataPartidaPrevista = isoToBr(hospede.saida);
 
       if (!dataChegadaPrevista || !dataPartidaPrevista) {
         inelegiveis += 1;
@@ -399,15 +360,19 @@ router.post('/compatibilidade', async (req, res, next) => {
   }
 });
 
-// Marcar hóspede como integrado ao PMS
+/**
+ * Marcar hóspede como integrado ao PMS
+ */
 router.post('/:id/integrar', async (req, res, next) => {
   try {
     const db = getSqliteDb();
     await garantirColunasExtras(db);
 
     const hospedeResult = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+    const hospede =
+      (hospedeResult.rows && hospedeResult.rows[0]) ? hospedeResult.rows[0] : null;
 
-    if (hospedeResult.rowCount === 0) {
+    if (!hospede) {
       return res.status(404).json({ error: 'Hóspede não encontrado' });
     }
 
@@ -432,21 +397,26 @@ router.post('/:id/integrar', async (req, res, next) => {
 
     res.json({
       message: 'Hóspede marcado como integrado ao PMS',
-      hospede: atualizado.rows[0]
+      hospede: (atualizado.rows && atualizado.rows[0]) || null
     });
   } catch (err) {
     next(err);
   }
 });
 
-// Excluir hóspede
+/**
+ * Excluir hóspede
+ */
 router.delete('/:id', async (req, res, next) => {
   try {
     const db = getSqliteDb();
     const result = await db.query('DELETE FROM hospedes WHERE id = ?', [req.params.id]);
-    if (result.rowCount === 0) {
+    const changesOrRowCount = (result && (result.rowCount ?? result.changes)) || 0;
+
+    if (changesOrRowCount === 0) {
       return res.status(404).json({ error: 'Hóspede não encontrado' });
     }
+
     res.status(204).send();
   } catch (err) {
     next(err);
