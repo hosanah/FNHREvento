@@ -58,8 +58,19 @@ function converterNumeroExcelParaData(numero) {
   );
 }
 
-function isoToBr(dateStr) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr).trim());
+function isoToBr(dateValue) {
+  if (!dateValue) return null;
+
+  if (dateValue instanceof Date) {
+    if (Number.isNaN(dateValue.getTime())) return null;
+    const yyyy = String(dateValue.getUTCFullYear()).padStart(4, '0');
+    const mm = String(dateValue.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(dateValue.getUTCDate()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  const dateStr = String(dateValue).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
   if (!m) return null; // ou lance um erro, se preferir
   const [, yyyy, mm, dd] = m;
   return `${dd}/${mm}/${yyyy}`;
