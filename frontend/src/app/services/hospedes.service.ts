@@ -23,6 +23,10 @@ export class HospedesService {
     return this.http.post<any>(`${this.baseUrl}/${id}/compatibilidade`, {});
   }
 
+  buscarCompatibilidadeTodos(): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/compatibilidade`, {});
+  }
+
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }
