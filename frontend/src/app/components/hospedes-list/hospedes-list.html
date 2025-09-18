@@ -16,6 +16,13 @@
             (ngModelChange)="onFilterChange()"
           />
         </span>
+        <p-button
+          label="Buscar compatibilidade de todos"
+          icon="pi pi-sync"
+          (click)="buscarCompatibilidadeTodos()"
+          [loading]="buscandoCompatibilidadeTodos"
+          [disabled]="buscandoCompatibilidadeTodos"
+        ></p-button>
         <p-button label="Importar planilha" icon="pi pi-upload" [routerLink]="['/hospedes/import']"></p-button>
       </div>
     </div>
@@ -56,6 +63,7 @@
                   icon="pi pi-check"
                   (click)="buscarCompatibilidade(h)"
                   [loading]="buscandoCompatibilidade[h.id]"
+                  [disabled]="buscandoCompatibilidadeTodos"
                   styleClass="compatibilidade-button"
                 ></p-button>
                 <p-button icon="pi pi-trash" severity="danger" (click)="remove(h.id)" rounded outlined></p-button>

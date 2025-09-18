@@ -30,6 +30,7 @@ import { HospedesService } from '../../services/hospedes.service';
 export class HospedesListComponent implements OnInit {
   hospedes: any[] = [];
   buscandoCompatibilidade: Record<number, boolean> = {};
+  buscandoCompatibilidadeTodos = false;
   page = 0;
   rows = 10;
   filterTerm = '';
@@ -113,6 +114,43 @@ export class HospedesListComponent implements OnInit {
     });
   }
 
+  buscarCompatibilidadeTodos(): void {
+    if (this.buscandoCompatibilidadeTodos) {
+      return;
+    }
+
+    this.buscandoCompatibilidadeTodos = true;
+
+    this.service.buscarCompatibilidadeTodos().subscribe({
+      next: response => {
+        this.buscandoCompatibilidadeTodos = false;
+
+        const resultados = Array.isArray(response?.resultados) ? response.resultados : [];
+        resultados.forEach((resultado: any) => {
+          const hospedeAtualizado = resultado?.hospede;
+          if (hospedeAtualizado && hospedeAtualizado.id) {
+            const index = this.hospedes.findIndex(h => h.id === hospedeAtualizado.id);
+            if (index !== -1) {
+              this.hospedes[index] = { ...this.hospedes[index], ...hospedeAtualizado };
+            }
+          }
+        });
+
+        this.adjustPage();
+
+        const mensagemResumo = this.montarResumoCompatibilidade(response);
+        if (mensagemResumo) {
+          window.alert(mensagemResumo);
+        }
+      },
+      error: err => {
+        this.buscandoCompatibilidadeTodos = false;
+        const mensagem = err?.error?.error || 'Erro ao buscar compatibilidade das reservas';
+        window.alert(mensagem);
+      }
+    });
+  }
+
   remove(id: number): void {
     this.service.delete(id).subscribe(() => {
       this.hospedes = this.hospedes.filter(h => h.id !== id);
@@ -182,5 +220,39 @@ export class HospedesListComponent implements OnInit {
     if (this.page > lastPage) {
       this.page = lastPage;
     }
+  }
+
+  private montarResumoCompatibilidade(resumo: any): string {
+    if (!resumo || typeof resumo !== 'object') {
+      return '';
+    }
+
+    const partes: string[] = [];
+
+    if (typeof resumo.totalElegiveis === 'number') {
+      partes.push(`Hóspedes elegíveis: ${resumo.totalElegiveis}`);
+    }
+
+    if (typeof resumo.totalProcessados === 'number') {
+      partes.push(`Processados: ${resumo.totalProcessados}`);
+    }
+
+    if (typeof resumo.compatibilidadesEncontradas === 'number') {
+      partes.push(`Compatibilidades encontradas: ${resumo.compatibilidadesEncontradas}`);
+    }
+
+    if (typeof resumo.semCompatibilidade === 'number') {
+      partes.push(`Sem compatibilidade: ${resumo.semCompatibilidade}`);
+    }
+
+    if (typeof resumo.inelegiveis === 'number' && resumo.inelegiveis > 0) {
+      partes.push(`Inelegíveis: ${resumo.inelegiveis}`);
+    }
+
+    if (typeof resumo.errosProcessamento === 'number' && resumo.errosProcessamento > 0) {
+      partes.push(`Com erros: ${resumo.errosProcessamento}`);
+    }
+
+    return partes.join('\n');
   }
 }
