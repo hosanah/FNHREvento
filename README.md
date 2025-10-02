@@ -97,6 +97,10 @@ npm run start:frontend  # porta 4200
 - Backend API: http://localhost:3000
 - Health Check: http://localhost:3000/health
 
+## 📦 Publicação
+
+- [Guia de publicação no IIS](docs/guia-publicacao-iis.md)
+
 ## 🤝 Contribuição
 
 Sinta‑se à vontade para abrir issues e enviar pull requests.
