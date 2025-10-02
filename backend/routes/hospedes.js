@@ -58,22 +58,17 @@ function converterNumeroExcelParaData(numero) {
   );
 }
 
-function isoToBr(dateValue) {
-  if (!dateValue) return null;
+function converterParaData(isoString) {
+  if (typeof isoString !== 'string') return null;
 
-  if (dateValue instanceof Date) {
-    if (Number.isNaN(dateValue.getTime())) return null;
-    const yyyy = String(dateValue.getUTCFullYear()).padStart(4, '0');
-    const mm = String(dateValue.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(dateValue.getUTCDate()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy}`;
-  }
+  const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
 
-  const dateStr = String(dateValue).trim();
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
-  if (!m) return null; // ou lance um erro, se preferir
-  const [, yyyy, mm, dd] = m;
-  return `${dd}/${mm}/${yyyy}`;
+  const ano = Number(match[1]);
+  const mes = Number(match[2]) - 1; // Mês no JS começa em 0
+  const dia = Number(match[3]);
+
+  return new Date(Date.UTC(ano, mes, dia));
 }
 
 function separarNomeSobrenome(nomeCompleto) {
@@ -242,8 +237,8 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
       return res.status(400).json({ error: 'Nome do hóspede inválido para buscar no Oracle' });
     }
 
-    const dataChegadaPrevista = isoToBr(hospede.entrada);
-    const dataPartidaPrevista = isoToBr(hospede.saida);
+    const dataChegadaPrevista = hospede.entrada;
+    const dataPartidaPrevista = hospede.saida;
     if (!dataChegadaPrevista || !dataPartidaPrevista) {
       return res.status(400).json({ error: 'Datas de entrada/saída inválidas para buscar no Oracle' });
     }
