@@ -54,33 +54,56 @@
             <td>{{ h.telefone || '-' }}</td>
             <td>{{ h.entrada || '-' }}</td>
             <td>{{ h.saida || '-' }}</td>
-            <td>{{ getStatusLabel(h.status) }}</td>
+            <td>
+              <span *ngIf="h.status == 3" class="status-integrado">
+                <i class="pi pi-check-circle"></i> {{ getStatusLabel(h.status) }}
+              </span>
+              <span *ngIf="h.status != 3">{{ getStatusLabel(h.status) }}</span>
+            </td>
             <td>
               <div class="actions">
                 <p-button icon="pi pi-search" rounded (click)="showDetalhes(h)" [text]="true"></p-button>
                 <p-button icon="pi pi-list" rounded (click)="showLogs(h)" [text]="true" severity="secondary"></p-button>
-                <!-- Status 1: Importado - Mostrar botão de Integrar Reserva -->
+                <!-- Botão de editar (apenas para status 1 e 2) -->
+                <p-button
+                  *ngIf="h.status != 3"
+                  icon="pi pi-pencil"
+                  rounded
+                  (click)="editHospede(h)"
+                  [text]="true"
+                  severity="info"
+                ></p-button>
+                <!-- Status 1: Importado - Mostrar botão de Buscar Compatibilidade -->
                 <p-button
                   *ngIf="h.status == 1"
-                  label="Integrar Reserva"
-                  icon="pi pi-check"
+                  label="Compatibilidade"
+                  icon="pi pi-search"
                   (click)="buscarCompatibilidade(h)"
                   [loading]="buscandoCompatibilidade[h.id]"
                   [disabled]="buscandoCompatibilidadeTodos"
-                  styleClass="compatibilidade-button"
+                  size="small"
+                  [outlined]="true"
                 ></p-button>
-                <!-- Status 2: Compatível - Mostrar botão de Atualizar Oracle -->
+                <!-- Status 2: Compatível - Mostrar botão de Atualizar FNRH -->
                 <p-button
                   *ngIf="h.status == 2"
-                  label="Atualizar Oracle"
+                  label="Atualizar FNRH"
                   icon="pi pi-sync"
                   (click)="atualizarOracle(h)"
                   [loading]="atualizandoOracle[h.id]"
                   severity="success"
-                  styleClass="compatibilidade-button"
+                  size="small"
+                  [outlined]="true"
                 ></p-button>
                 <!-- Status 3: Integrado - Nenhum botão de ação adicional -->
-                <p-button icon="pi pi-trash" severity="danger" (click)="remove(h.id)" rounded outlined></p-button>
+                <p-button
+                  *ngIf="h.status != 3"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  (click)="remove(h)"
+                  rounded
+                  outlined
+                ></p-button>
               </div>
             </td>
           </tr>
@@ -253,4 +276,134 @@
       </tr>
     </ng-template>
   </p-table>
+</p-dialog>
+
+<p-dialog
+  [(visible)]="editDialogVisible"
+  [modal]="true"
+  [style]="{ width: '800px' }"
+  [breakpoints]="{ '960px': '95vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="edit-dialog"
+  [header]="'Editar Hóspede - ' + (hospedeEmEdicao?.nome_completo || '')"
+>
+  <div *ngIf="hospedeEmEdicao" class="edit-form">
+    <div class="form-grid">
+      <div class="form-item">
+        <label for="nome">Nome Completo</label>
+        <input id="nome" type="text" pInputText [(ngModel)]="hospedeEmEdicao.nome_completo" />
+      </div>
+
+      <div class="form-item">
+        <label for="codigo">Código</label>
+        <input id="codigo" type="text" pInputText [(ngModel)]="hospedeEmEdicao.codigo" />
+      </div>
+
+      <div class="form-item">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" pInputText [(ngModel)]="hospedeEmEdicao.email" />
+      </div>
+
+      <div class="form-item">
+        <label for="telefone">Telefone</label>
+        <input id="telefone" type="text" pInputText [(ngModel)]="hospedeEmEdicao.telefone" />
+      </div>
+
+      <div class="form-item">
+        <label for="cpf">CPF</label>
+        <input id="cpf" type="text" pInputText [(ngModel)]="hospedeEmEdicao.cpf" />
+      </div>
+
+      <div class="form-item">
+        <label for="identidade">Identidade</label>
+        <input id="identidade" type="text" pInputText [(ngModel)]="hospedeEmEdicao.identidade" />
+      </div>
+
+      <div class="form-item">
+        <label for="profissao">Profissão</label>
+        <input id="profissao" type="text" pInputText [(ngModel)]="hospedeEmEdicao.profissao" />
+      </div>
+
+      <div class="form-item">
+        <label for="data_nascimento">Data de Nascimento</label>
+        <input id="data_nascimento" type="text" pInputText [(ngModel)]="hospedeEmEdicao.data_nascimento" />
+      </div>
+
+      <div class="form-item">
+        <label for="sexo">Sexo</label>
+        <input id="sexo" type="text" pInputText [(ngModel)]="hospedeEmEdicao.sexo" />
+      </div>
+
+      <div class="form-item">
+        <label for="apto">Apartamento</label>
+        <input id="apto" type="text" pInputText [(ngModel)]="hospedeEmEdicao.apto" />
+      </div>
+
+      <div class="form-item full-width">
+        <label for="endereco">Endereço</label>
+        <input id="endereco" type="text" pInputText [(ngModel)]="hospedeEmEdicao.endereco" />
+      </div>
+
+      <div class="form-item">
+        <label for="numero">Número</label>
+        <input id="numero" type="text" pInputText [(ngModel)]="hospedeEmEdicao.numero" />
+      </div>
+
+      <div class="form-item">
+        <label for="complemento">Complemento</label>
+        <input id="complemento" type="text" pInputText [(ngModel)]="hospedeEmEdicao.complemento" />
+      </div>
+
+      <div class="form-item">
+        <label for="bairro">Bairro</label>
+        <input id="bairro" type="text" pInputText [(ngModel)]="hospedeEmEdicao.bairro" />
+      </div>
+
+      <div class="form-item">
+        <label for="cidade">Cidade</label>
+        <input id="cidade" type="text" pInputText [(ngModel)]="hospedeEmEdicao.cidade" />
+      </div>
+
+      <div class="form-item">
+        <label for="estado">Estado</label>
+        <input id="estado" type="text" pInputText [(ngModel)]="hospedeEmEdicao.estado" />
+      </div>
+
+      <div class="form-item">
+        <label for="pais">País</label>
+        <input id="pais" type="text" pInputText [(ngModel)]="hospedeEmEdicao.pais" />
+      </div>
+
+      <div class="form-item">
+        <label for="cep">CEP</label>
+        <input id="cep" type="text" pInputText [(ngModel)]="hospedeEmEdicao.cep" />
+      </div>
+
+      <div class="form-item">
+        <label for="entrada">Data de Entrada</label>
+        <input id="entrada" type="text" pInputText [(ngModel)]="hospedeEmEdicao.entrada" />
+      </div>
+
+      <div class="form-item">
+        <label for="saida">Data de Saída</label>
+        <input id="saida" type="text" pInputText [(ngModel)]="hospedeEmEdicao.saida" />
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancelar"
+      icon="pi pi-times"
+      (click)="cancelEdit()"
+      [text]="true"
+    ></p-button>
+    <p-button
+      label="Salvar"
+      icon="pi pi-check"
+      (click)="saveHospede()"
+      [loading]="salvandoHospede"
+    ></p-button>
+  </ng-template>
 </p-dialog>

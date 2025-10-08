@@ -2,3 +2,17 @@
 @use './layout/layout.scss';
 @use 'primeicons/primeicons.css';
 @use './demo/demo.scss';
+
+/* PrimeNG Toast z-index fix */
+:root {
+  --p-toast-zindex: 9999 !important;
+}
+
+p-toast {
+  z-index: 9999 !important;
+}
+
+.p-toast {
+  z-index: 9999 !important;
+  position: fixed !important;
+}

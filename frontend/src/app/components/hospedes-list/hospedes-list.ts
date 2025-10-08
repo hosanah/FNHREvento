@@ -9,6 +9,7 @@ import { TagModule } from 'primeng/tag';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
+import { MessageService } from 'primeng/api';
 import { HospedesService } from '../../services/hospedes.service';
 
 @Component({
@@ -43,6 +44,9 @@ export class HospedesListComponent implements OnInit {
   selectedHospedeForLogs: any | null = null;
   hospedeLogsList: any[] = [];
   loadingLogs = false;
+  editDialogVisible = false;
+  hospedeEmEdicao: any | null = null;
+  salvandoHospede = false;
 
   private readonly statusLabels: Record<number, string> = {
     1: 'Importado',
@@ -50,7 +54,10 @@ export class HospedesListComponent implements OnInit {
     3: 'Integrado'
   };
 
-  constructor(private service: HospedesService) {}
+  constructor(
+    private service: HospedesService,
+    private messageService: MessageService
+  ) {}
 
   ngOnInit(): void {
     this.service.list().subscribe(data => {
@@ -113,13 +120,23 @@ export class HospedesListComponent implements OnInit {
         }
 
         if (response?.message) {
-          window.alert(response.message);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Sucesso',
+            detail: response.message,
+            life: 5000
+          });
         }
       },
       error: err => {
         this.buscandoCompatibilidade[id] = false;
         const mensagem = err?.error?.error || 'Erro ao buscar compatibilidade da reserva';
-        window.alert(mensagem);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: mensagem,
+          life: 5000
+        });
       }
     });
   }
@@ -150,21 +167,52 @@ export class HospedesListComponent implements OnInit {
 
         const mensagemResumo = this.montarResumoCompatibilidade(response);
         if (mensagemResumo) {
-          window.alert(mensagemResumo);
+          this.messageService.add({
+            severity: 'info',
+            summary: 'Busca Concluída',
+            detail: mensagemResumo,
+            life: 7000
+          });
         }
       },
       error: err => {
         this.buscandoCompatibilidadeTodos = false;
         const mensagem = err?.error?.error || 'Erro ao buscar compatibilidade das reservas';
-        window.alert(mensagem);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: mensagem,
+          life: 5000
+        });
       }
     });
   }
 
-  remove(id: number): void {
-    this.service.delete(id).subscribe(() => {
-      this.hospedes = this.hospedes.filter(h => h.id !== id);
+  remove(hospede: any): void {
+    // Impedir exclusão de registros integrados
+    if (hospede.status == 3) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Ação Bloqueada',
+        detail: 'Não é possível excluir um hóspede já integrado ao sistema FNRH.',
+        life: 5000
+      });
+      return;
+    }
+
+    if (!confirm(`Deseja realmente excluir o hóspede ${hospede.nome_completo}?`)) {
+      return;
+    }
+
+    this.service.delete(hospede.id).subscribe(() => {
+      this.hospedes = this.hospedes.filter(h => h.id !== hospede.id);
       this.adjustPage();
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Sucesso',
+        detail: 'Hóspede excluído com sucesso!',
+        life: 3000
+      });
     });
   }
 
@@ -262,12 +310,22 @@ export class HospedesListComponent implements OnInit {
           Object.assign(hospede, dadosAtualizados);
         }
 
-        window.alert(response.message || 'Dados atualizados no Oracle com sucesso!');
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Sucesso',
+          detail: response.message || 'Dados atualizados no Oracle com sucesso!',
+          life: 5000
+        });
       },
       error: (err) => {
         this.atualizandoOracle[id] = false;
         const mensagem = err?.error?.error || 'Erro ao atualizar dados no Oracle';
-        window.alert(mensagem);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: mensagem,
+          life: 5000
+        });
       }
     });
   }
@@ -304,6 +362,67 @@ export class HospedesListComponent implements OnInit {
     if (this.page > lastPage) {
       this.page = lastPage;
     }
+  }
+
+  editHospede(hospede: any): void {
+    // Bloquear edição de registros integrados (status 3)
+    if (hospede.status == 3) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Ação Bloqueada',
+        detail: 'Não é possível editar um hóspede já integrado ao sistema FNRH.',
+        life: 5000
+      });
+      return;
+    }
+
+    // Criar uma cópia do hóspede para edição
+    this.hospedeEmEdicao = { ...hospede };
+    this.editDialogVisible = true;
+  }
+
+  cancelEdit(): void {
+    this.editDialogVisible = false;
+    this.hospedeEmEdicao = null;
+  }
+
+  saveHospede(): void {
+    if (!this.hospedeEmEdicao || !this.hospedeEmEdicao.id) {
+      return;
+    }
+
+    this.salvandoHospede = true;
+
+    this.service.update(this.hospedeEmEdicao.id, this.hospedeEmEdicao).subscribe({
+      next: (hospedeAtualizado) => {
+        this.salvandoHospede = false;
+
+        // Atualizar o hóspede na lista
+        const index = this.hospedes.findIndex(h => h.id === this.hospedeEmEdicao!.id);
+        if (index !== -1) {
+          this.hospedes[index] = { ...this.hospedes[index], ...hospedeAtualizado };
+        }
+
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Sucesso',
+          detail: 'Hóspede atualizado com sucesso!',
+          life: 3000
+        });
+        this.editDialogVisible = false;
+        this.hospedeEmEdicao = null;
+      },
+      error: (err) => {
+        this.salvandoHospede = false;
+        const mensagem = err?.error?.error || 'Erro ao atualizar hóspede';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: mensagem,
+          life: 5000
+        });
+      }
+    });
   }
 
   private montarResumoCompatibilidade(resumo: any): string {

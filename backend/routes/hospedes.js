@@ -698,6 +698,57 @@ router.post('/:id/integrar', async (req, res, next) => {
 /**
  * Excluir hóspede
  */
+router.put('/:id', async (req, res, next) => {
+  try {
+    const db = getSqliteDb();
+    const id = parseInt(req.params.id, 10);
+
+    // Verificar se o hóspede existe
+    const hospedeExistente = await db.query('SELECT * FROM hospedes WHERE id = ?', [id]);
+    if (!hospedeExistente.rows || hospedeExistente.rows.length === 0) {
+      return res.status(404).json({ error: 'Hóspede não encontrado' });
+    }
+
+    const hospede = hospedeExistente.rows[0];
+
+    // Bloquear edição de registros integrados (status 3)
+    if (hospede.status == 3) {
+      return res.status(403).json({ error: 'Não é possível editar um hóspede já integrado ao sistema FNRH.' });
+    }
+
+    // Extrair dados do body
+    const {
+      nome_completo, codigo, email, telefone, cpf, identidade, profissao,
+      data_nascimento, sexo, apto, endereco, numero, complemento, bairro,
+      cidade, estado, pais, cep, entrada, saida
+    } = req.body;
+
+    // Atualizar no banco de dados
+    const updateQuery = `
+      UPDATE hospedes SET
+        nome_completo = ?, codigo = ?, email = ?, telefone = ?, cpf = ?,
+        identidade = ?, profissao = ?, data_nascimento = ?, sexo = ?, apto = ?,
+        endereco = ?, numero = ?, complemento = ?, bairro = ?, cidade = ?,
+        estado = ?, pais = ?, cep = ?, entrada = ?, saida = ?
+      WHERE id = ?
+    `;
+
+    await db.query(updateQuery, [
+      nome_completo, codigo, email, telefone, cpf,
+      identidade, profissao, data_nascimento, sexo, apto,
+      endereco, numero, complemento, bairro, cidade,
+      estado, pais, cep, entrada, saida,
+      id
+    ]);
+
+    // Buscar o hóspede atualizado
+    const hospedeAtualizado = await db.query('SELECT * FROM hospedes WHERE id = ?', [id]);
+    res.json(hospedeAtualizado.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.delete('/:id', async (req, res, next) => {
   try {
     const db = getSqliteDb();

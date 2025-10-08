@@ -44,4 +44,8 @@ export class HospedesService {
   atualizarOracle(id: number): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/${id}/atualizar-oracle`, {});
   }
+
+  update(id: number, data: any): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/${id}`, data);
+  }
 }

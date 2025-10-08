@@ -136,6 +136,19 @@
   flex-shrink: 0;
 }
 
+.status-integrado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--p-green-600, #16a34a);
+}
+
+.status-integrado i {
+  font-size: 1.1rem;
+  color: var(--p-green-500, #22c55e);
+}
+
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -225,6 +238,36 @@ p-paginator {
   color: var(--p-surface-500, #64748b);
 }
 
+.edit-form {
+  padding: 1rem 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-item label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--p-surface-700, #334155);
+}
+
+.form-item input {
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   :host {
     padding: 1rem;
@@ -256,5 +299,9 @@ p-paginator {
 
   .actions {
     flex-wrap: wrap;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }
