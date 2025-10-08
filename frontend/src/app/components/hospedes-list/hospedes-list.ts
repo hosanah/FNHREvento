@@ -8,6 +8,7 @@ import { PaginatorModule, PaginatorState } from 'primeng/paginator';
 import { TagModule } from 'primeng/tag';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
+import { TableModule } from 'primeng/table';
 import { HospedesService } from '../../services/hospedes.service';
 
 @Component({
@@ -23,6 +24,7 @@ import { HospedesService } from '../../services/hospedes.service';
     TagModule,
     DialogModule,
     InputTextModule,
+    TableModule,
   ],
   templateUrl: './hospedes-list.html',
   styleUrls: ['./hospedes-list.scss']
@@ -31,18 +33,21 @@ export class HospedesListComponent implements OnInit {
   hospedes: any[] = [];
   buscandoCompatibilidade: Record<number, boolean> = {};
   buscandoCompatibilidadeTodos = false;
+  atualizandoOracle: Record<number, boolean> = {};
   page = 0;
   rows = 10;
   filterTerm = '';
   detailDialogVisible = false;
   selectedHospede: any | null = null;
+  logsDialogVisible = false;
+  selectedHospedeForLogs: any | null = null;
+  hospedeLogsList: any[] = [];
+  loadingLogs = false;
 
-  private readonly statusLabels: Record<string, string> = {
-    importado: 'Importado',
-    compativel: 'Compatível',
-    'não compativel': 'Não Compatível',
-    'nao compativel': 'Não Compatível',
-    integrado: 'Integrado'
+  private readonly statusLabels: Record<number, string> = {
+    1: 'Importado',
+    2: 'Compatível',
+    3: 'Integrado'
   };
 
   constructor(private service: HospedesService) {}
@@ -97,9 +102,14 @@ export class HospedesListComponent implements OnInit {
       next: response => {
         this.buscandoCompatibilidade[id] = false;
 
+        console.log('🔍 Resposta do backend:', response);
+        console.log('📋 Hóspede atualizado:', response?.hospede);
+        console.log('⚡ Status recebido:', response?.hospede?.status);
+
         const dadosAtualizados = response?.hospede;
         if (dadosAtualizados) {
           Object.assign(hospede, dadosAtualizados);
+          console.log('✅ Objeto local atualizado. Novo status:', hospede.status);
         }
 
         if (response?.message) {
@@ -184,26 +194,100 @@ export class HospedesListComponent implements OnInit {
     this.selectedHospede = null;
   }
 
+  showLogs(hospede: any): void {
+    this.selectedHospedeForLogs = hospede;
+    this.logsDialogVisible = true;
+    this.loadingLogs = true;
+    this.hospedeLogsList = [];
+
+    this.service.getLogsHospede(hospede.id).subscribe({
+      next: (logs) => {
+        this.hospedeLogsList = logs || [];
+        this.loadingLogs = false;
+      },
+      error: (err) => {
+        console.error('Erro ao carregar logs do hóspede:', err);
+        this.loadingLogs = false;
+      }
+    });
+  }
+
+  getTipoAcaoSeverity(tipoAcao: string): string {
+    switch (tipoAcao) {
+      case 'sucesso':
+        return 'success';
+      case 'nao_encontrado':
+        return 'warning';
+      case 'erro':
+        return 'danger';
+      default:
+        return 'info';
+    }
+  }
+
+  getTipoAcaoLabel(tipoAcao: string): string {
+    switch (tipoAcao) {
+      case 'sucesso':
+        return 'Sucesso';
+      case 'nao_encontrado':
+        return 'Não Encontrado';
+      case 'erro':
+        return 'Erro';
+      default:
+        return tipoAcao;
+    }
+  }
+
+  formatDateTime(dateString: string): string {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('pt-BR');
+  }
+
+  atualizarOracle(hospede: any): void {
+    if (!hospede || !hospede.id) {
+      return;
+    }
+
+    const id = hospede.id;
+    this.atualizandoOracle[id] = true;
+
+    this.service.atualizarOracle(id).subscribe({
+      next: (response) => {
+        this.atualizandoOracle[id] = false;
+
+        // Atualizar objeto local com dados retornados (incluindo novo status)
+        const dadosAtualizados = response?.hospede;
+        if (dadosAtualizados) {
+          Object.assign(hospede, dadosAtualizados);
+        }
+
+        window.alert(response.message || 'Dados atualizados no Oracle com sucesso!');
+      },
+      error: (err) => {
+        this.atualizandoOracle[id] = false;
+        const mensagem = err?.error?.error || 'Erro ao atualizar dados no Oracle';
+        window.alert(mensagem);
+      }
+    });
+  }
+
   getStatusLabel(status: unknown): string {
     if (status === null || status === undefined || status === '') {
       return '-';
     }
 
+    // Converter para número se for string numérica
+    const statusNum = typeof status === 'number' ? status : parseInt(String(status), 10);
+
+    // Verificar se é um número válido
+    if (!isNaN(statusNum) && this.statusLabels[statusNum]) {
+      return this.statusLabels[statusNum];
+    }
+
+    // Fallback para string
     const texto = String(status).trim();
-    if (!texto) {
-      return '-';
-    }
-
-    const normalizado = texto.toLowerCase();
-    const label = this.statusLabels[normalizado];
-    if (label) {
-      return label;
-    }
-
-    return texto
-      .split(/\s+/)
-      .map(parte => parte.charAt(0).toUpperCase() + parte.slice(1))
-      .join(' ');
+    return texto || '-';
   }
 
   private includesTerm(value: unknown, term: string): boolean {

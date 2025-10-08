@@ -30,4 +30,18 @@ export class HospedesService {
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }
+
+  getLogsCompatibilidade(limit: number = 100, offset: number = 0): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/logs`, {
+      params: { limit: limit.toString(), offset: offset.toString() }
+    });
+  }
+
+  getLogsHospede(hospedeId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/${hospedeId}/logs`);
+  }
+
+  atualizarOracle(id: number): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/${id}/atualizar-oracle`, {});
+  }
 }

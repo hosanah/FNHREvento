@@ -58,14 +58,28 @@
             <td>
               <div class="actions">
                 <p-button icon="pi pi-search" rounded (click)="showDetalhes(h)" [text]="true"></p-button>
+                <p-button icon="pi pi-list" rounded (click)="showLogs(h)" [text]="true" severity="secondary"></p-button>
+                <!-- Status 1: Importado - Mostrar botão de Integrar Reserva -->
                 <p-button
-                  label="Compatibilidade"
+                  *ngIf="h.status == 1"
+                  label="Integrar Reserva"
                   icon="pi pi-check"
                   (click)="buscarCompatibilidade(h)"
                   [loading]="buscandoCompatibilidade[h.id]"
                   [disabled]="buscandoCompatibilidadeTodos"
                   styleClass="compatibilidade-button"
                 ></p-button>
+                <!-- Status 2: Compatível - Mostrar botão de Atualizar Oracle -->
+                <p-button
+                  *ngIf="h.status == 2"
+                  label="Atualizar Oracle"
+                  icon="pi pi-sync"
+                  (click)="atualizarOracle(h)"
+                  [loading]="atualizandoOracle[h.id]"
+                  severity="success"
+                  styleClass="compatibilidade-button"
+                ></p-button>
+                <!-- Status 3: Integrado - Nenhum botão de ação adicional -->
                 <p-button icon="pi pi-trash" severity="danger" (click)="remove(h.id)" rounded outlined></p-button>
               </div>
             </td>
@@ -188,4 +202,55 @@
       <span class="value">{{ selectedHospede.idreservasfront || '-' }}</span>
     </div>
   </div>
+</p-dialog>
+
+<p-dialog
+  [(visible)]="logsDialogVisible"
+  [modal]="true"
+  [style]="{ width: '900px' }"
+  [breakpoints]="{ '960px': '95vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="logs-dialog"
+  [header]="'Logs de Integração - ' + (selectedHospedeForLogs?.nome_completo || '')"
+>
+  <div *ngIf="loadingLogs" style="text-align: center; padding: 2rem;">
+    <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+    <p>Carregando logs...</p>
+  </div>
+
+  <div *ngIf="!loadingLogs && hospedeLogsList.length === 0" style="text-align: center; padding: 2rem;">
+    <i class="pi pi-info-circle" style="font-size: 2rem; color: #999;"></i>
+    <p>Nenhum log encontrado para este hóspede</p>
+  </div>
+
+  <p-table
+    *ngIf="!loadingLogs && hospedeLogsList.length > 0"
+    [value]="hospedeLogsList"
+    styleClass="p-datatable-sm"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 100px">Chegada</th>
+        <th style="width: 100px">Partida</th>
+        <th style="width: 120px">Tipo</th>
+        <th>Mensagem</th>
+        <th style="width: 160px">Data/Hora</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-log>
+      <tr>
+        <td>{{ log.data_chegada || '-' }}</td>
+        <td>{{ log.data_partida || '-' }}</td>
+        <td>
+          <p-tag
+            [value]="getTipoAcaoLabel(log.tipo_acao)"
+            [severity]="getTipoAcaoSeverity(log.tipo_acao)"
+          ></p-tag>
+        </td>
+        <td>{{ log.mensagem }}</td>
+        <td>{{ formatDateTime(log.created_at) }}</td>
+      </tr>
+    </ng-template>
+  </p-table>
 </p-dialog>

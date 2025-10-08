@@ -1,0 +1,17 @@
+.container {
+  padding: 1rem;
+}
+
+:host ::ng-deep .p-datatable {
+  font-size: 0.875rem;
+
+  .p-datatable-thead > tr > th {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    font-weight: 600;
+  }
+
+  .p-datatable-tbody > tr > td {
+    border-color: #dee2e6;
+  }
+}

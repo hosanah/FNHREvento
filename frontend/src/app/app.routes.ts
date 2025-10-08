@@ -18,6 +18,10 @@ export const routes: Routes = [
         path: 'hospedes',
         loadComponent: () => import('./components/hospedes-list/hospedes-list').then(m => m.HospedesListComponent)
       },
+      {
+        path: 'logs',
+        loadComponent: () => import('./components/logs-compatibilidade/logs-compatibilidade').then(m => m.LogsCompatibilidadeComponent)
+      },
       { path: '', redirectTo: 'home', pathMatch: 'full' }
     ]
   },

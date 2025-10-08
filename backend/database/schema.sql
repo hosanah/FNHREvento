@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS hospedes (
   apto TEXT,
   nome_completo TEXT,
   endereco TEXT,
+  numero TEXT,
+  complemento TEXT,
+  bairro TEXT,
   estado TEXT,
   email TEXT,
   profissao TEXT,
@@ -42,4 +45,18 @@ CREATE TABLE IF NOT EXISTS hospedes (
   status TEXT,
   idhospede TEXT,
   idreservasfront TEXT
+);
+
+-- Tabela para armazenar logs de busca de compatibilidade
+CREATE TABLE IF NOT EXISTS logs_compatibilidade (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  hospede_id INTEGER REFERENCES hospedes(id) ON DELETE CASCADE,
+  nome_completo TEXT NOT NULL,
+  data_chegada TEXT,
+  data_partida TEXT,
+  tipo_acao TEXT NOT NULL, -- 'sucesso', 'nao_encontrado', 'erro'
+  mensagem TEXT,
+  reserva_encontrada TEXT, -- JSON com dados da reserva
+  erro_detalhes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

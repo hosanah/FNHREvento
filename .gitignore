@@ -8,3 +8,10 @@
 # Ignore backend package lock
 backend/package-lock.json
 backend/database/*.sqlite
+
+# Claude Code configuration
+.claude/
+
+# Development/test files
+nul
+queries.txt

@@ -4,7 +4,7 @@ const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
 const { getSqliteDb } = require('../config/database');
-const { buscarReservaOracle } = require('../config/oracleDatabase');
+const { buscarReservaOracle, atualizarDadosHospedeOracle } = require('../config/oracleDatabase');
 
 const upload = multer({ dest: path.join(__dirname, '../uploads') });
 const router = express.Router();
@@ -82,6 +82,75 @@ function separarNomeSobrenome(nomeCompleto) {
   return { nome, sobrenome };
 }
 
+/**
+ * Salvar log de compatibilidade
+ */
+async function salvarLogCompatibilidade(db, logData) {
+  try {
+    await db.query(
+      `INSERT INTO logs_compatibilidade
+       (hospede_id, nome_completo, data_chegada, data_partida, tipo_acao, mensagem, reserva_encontrada, erro_detalhes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        logData.hospedeId || null,
+        logData.nomeCompleto,
+        logData.dataChegada || null,
+        logData.dataPartida || null,
+        logData.tipoAcao, // 'sucesso', 'nao_encontrado', 'erro'
+        logData.mensagem,
+        logData.reservaEncontrada ? JSON.stringify(logData.reservaEncontrada) : null,
+        logData.erroDetalhes || null
+      ]
+    );
+  } catch (err) {
+    console.error('❌ Erro ao salvar log de compatibilidade:', err.message);
+  }
+}
+
+/**
+ * Converte string de data (ISO, brasileiro ou texto) para objeto Date
+ */
+function converterStringParaDate(dateString) {
+  if (!dateString) return null;
+  if (dateString instanceof Date) return dateString;
+
+  // Tenta parsear formato brasileiro DD/MM/YYYY
+  const brMatch = String(dateString).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    const day = parseInt(brMatch[1], 10);
+    const month = parseInt(brMatch[2], 10) - 1; // Mês começa em 0
+    const year = parseInt(brMatch[3], 10);
+    const date = new Date(Date.UTC(year, month, day));
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  // Tenta parsear string ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss)
+  const date = new Date(dateString);
+  if (!Number.isNaN(date.getTime())) {
+    return date;
+  }
+
+  return null;
+}
+
+/**
+ * Converte data ISO para formato brasileiro DD/MM/YYYY
+ */
+function isoToBr(isoString) {
+  if (!isoString) return null;
+
+  const date = converterStringParaDate(isoString);
+  if (!date) return null;
+
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
 async function garantirColunasExtras(db) {
   if (colunasExtrasVerificadas) return;
 
@@ -90,6 +159,9 @@ async function garantirColunasExtras(db) {
 
   await adicionarColunaSeNecessario(db, nomesColunas, 'idhospede', 'TEXT');
   await adicionarColunaSeNecessario(db, nomesColunas, 'idreservasfront', 'TEXT');
+  await adicionarColunaSeNecessario(db, nomesColunas, 'numero', 'TEXT');
+  await adicionarColunaSeNecessario(db, nomesColunas, 'complemento', 'TEXT');
+  await adicionarColunaSeNecessario(db, nomesColunas, 'bairro', 'TEXT');
 
   colunasExtrasVerificadas = true;
 }
@@ -121,7 +193,8 @@ async function executarCompatibilidadeValida(db, hospede, { nome, sobrenome, dat
     reserva.idReservasFront ??
     null;
 
-  await db.query('UPDATE hospedes SET idhospede = ?, idreservasfront = ? WHERE id = ?', [
+  // Status 2: Compatível (reserva vinculada, mas não integrado)
+  await db.query('UPDATE hospedes SET idhospede = ?, idreservasfront = ?, status = 2 WHERE id = ?', [
     idHospedeOracle,
     idReservasFrontOracle,
     hospede.id
@@ -185,7 +258,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
           sexo,
           entrada,
           saida,
-          'importado',
+          1, // Status 1: Importado (sem reserva vinculada)
           null,
           null
         ]
@@ -237,20 +310,45 @@ router.post('/:id/compatibilidade', async (req, res, next) => {
       return res.status(400).json({ error: 'Nome do hóspede inválido para buscar no Oracle' });
     }
 
-    const dataChegadaPrevista = hospede.entrada;
-    const dataPartidaPrevista = hospede.saida;
+    const dataChegadaPrevista = converterStringParaDate(hospede.entrada);
+    const dataPartidaPrevista = converterStringParaDate(hospede.saida);
     if (!dataChegadaPrevista || !dataPartidaPrevista) {
       return res.status(400).json({ error: 'Datas de entrada/saída inválidas para buscar no Oracle' });
     }
 
-    const resultado = await executarCompatibilidadeValida(db, hospede, {
-      nome,
-      sobrenome,
-      dataChegadaPrevista,
-      dataPartidaPrevista
-    });
+    try {
+      const resultado = await executarCompatibilidadeValida(db, hospede, {
+        nome,
+        sobrenome,
+        dataChegadaPrevista,
+        dataPartidaPrevista
+      });
 
-    res.json(resultado);
+      // Salvar log
+      await salvarLogCompatibilidade(db, {
+        hospedeId: hospede.id,
+        nomeCompleto: hospede.nome_completo,
+        dataChegada: hospede.entrada,
+        dataPartida: hospede.saida,
+        tipoAcao: resultado.compatibilidadeEncontrada ? 'sucesso' : 'nao_encontrado',
+        mensagem: resultado.message,
+        reservaEncontrada: resultado.reserva || null
+      });
+
+      res.json(resultado);
+    } catch (searchErr) {
+      // Salvar log de erro
+      await salvarLogCompatibilidade(db, {
+        hospedeId: hospede.id,
+        nomeCompleto: hospede.nome_completo,
+        dataChegada: hospede.entrada,
+        dataPartida: hospede.saida,
+        tipoAcao: 'erro',
+        mensagem: 'Erro ao buscar compatibilidade',
+        erroDetalhes: searchErr.message
+      });
+      throw searchErr;
+    }
   } catch (err) {
     if (err && err.message && err.message.includes('Oracle Database indisponível')) {
       return res.status(503).json({ error: err.message });
@@ -283,6 +381,15 @@ router.post('/compatibilidade', async (req, res, next) => {
 
       if (!nome || !sobrenome) {
         inelegiveis += 1;
+        await salvarLogCompatibilidade(db, {
+          hospedeId: hospede.id,
+          nomeCompleto: hospede.nome_completo,
+          dataChegada: hospede.entrada,
+          dataPartida: hospede.saida,
+          tipoAcao: 'erro',
+          mensagem: 'Nome do hóspede inválido para buscar no Oracle',
+          erroDetalhes: 'Nome ou sobrenome ausente após separação'
+        });
         resultados.push({
           id: hospede.id,
           status: 'inelegivel',
@@ -292,11 +399,20 @@ router.post('/compatibilidade', async (req, res, next) => {
         continue;
       }
 
-      const dataChegadaPrevista = isoToBr(hospede.entrada);
-      const dataPartidaPrevista = isoToBr(hospede.saida);
+      const dataChegadaPrevista = converterStringParaDate(hospede.entrada);
+      const dataPartidaPrevista = converterStringParaDate(hospede.saida);
 
       if (!dataChegadaPrevista || !dataPartidaPrevista) {
         inelegiveis += 1;
+        await salvarLogCompatibilidade(db, {
+          hospedeId: hospede.id,
+          nomeCompleto: hospede.nome_completo,
+          dataChegada: hospede.entrada,
+          dataPartida: hospede.saida,
+          tipoAcao: 'erro',
+          mensagem: 'Datas de entrada/saída inválidas para buscar no Oracle',
+          erroDetalhes: 'Não foi possível converter as datas para o formato Date'
+        });
         resultados.push({
           id: hospede.id,
           status: 'inelegivel',
@@ -320,6 +436,15 @@ router.post('/compatibilidade', async (req, res, next) => {
 
         if (resultado.compatibilidadeEncontrada) {
           compatibilidadesEncontradas += 1;
+          await salvarLogCompatibilidade(db, {
+            hospedeId: hospede.id,
+            nomeCompleto: hospede.nome_completo,
+            dataChegada: isoToBr(dataChegadaPrevista),
+            dataPartida: isoToBr(dataPartidaPrevista),
+            tipoAcao: 'sucesso',
+            mensagem: 'Reserva compatível encontrada no Oracle',
+            reservaEncontrada: resultado.reserva
+          });
           resultados.push({
             id: hospede.id,
             status: 'compatibilidade-encontrada',
@@ -327,6 +452,14 @@ router.post('/compatibilidade', async (req, res, next) => {
           });
         } else {
           semCompatibilidade += 1;
+          await salvarLogCompatibilidade(db, {
+            hospedeId: hospede.id,
+            nomeCompleto: hospede.nome_completo,
+            dataChegada: isoToBr(dataChegadaPrevista),
+            dataPartida: isoToBr(dataPartidaPrevista),
+            tipoAcao: 'nao_encontrado',
+            mensagem: 'Nenhuma reserva compatível encontrada no Oracle'
+          });
           resultados.push({
             id: hospede.id,
             status: 'nenhuma-compatibilidade',
@@ -339,6 +472,15 @@ router.post('/compatibilidade', async (req, res, next) => {
         }
 
         errosProcessamento += 1;
+        await salvarLogCompatibilidade(db, {
+          hospedeId: hospede.id,
+          nomeCompleto: hospede.nome_completo,
+          dataChegada: isoToBr(dataChegadaPrevista),
+          dataPartida: isoToBr(dataPartidaPrevista),
+          tipoAcao: 'erro',
+          mensagem: 'Erro ao buscar compatibilidade da reserva no Oracle',
+          erroDetalhes: err && err.message ? err.message : 'Erro desconhecido'
+        });
         resultados.push({
           id: hospede.id,
           status: 'erro',
@@ -362,6 +504,149 @@ router.post('/compatibilidade', async (req, res, next) => {
     if (err && err.message && err.message.includes('Oracle Database indisponível')) {
       return res.status(503).json({ error: err.message });
     }
+    next(err);
+  }
+});
+
+/**
+ * Listar logs de compatibilidade
+ */
+router.get('/logs', async (req, res, next) => {
+  try {
+    const db = getSqliteDb();
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const offset = parseInt(req.query.offset, 10) || 0;
+
+    const logsResult = await db.query(
+      `SELECT * FROM logs_compatibilidade
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    const countResult = await db.query('SELECT COUNT(*) as total FROM logs_compatibilidade');
+    const total = countResult.rows?.[0]?.total || 0;
+
+    res.json({
+      logs: logsResult.rows || [],
+      total,
+      limit,
+      offset
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Listar logs de um hóspede específico
+ */
+router.get('/:id/logs', async (req, res, next) => {
+  try {
+    const db = getSqliteDb();
+    const hospedeId = parseInt(req.params.id, 10);
+
+    const logsResult = await db.query(
+      `SELECT * FROM logs_compatibilidade
+       WHERE hospede_id = ?
+       ORDER BY created_at DESC`,
+      [hospedeId]
+    );
+
+    res.json(logsResult.rows || []);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Atualizar dados do hóspede no Oracle
+ */
+router.post('/:id/atualizar-oracle', async (req, res, next) => {
+  try {
+    const db = getSqliteDb();
+    await garantirColunasExtras(db);
+
+    const hospedeResult = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+    const hospede =
+      (hospedeResult.rows && hospedeResult.rows[0]) ? hospedeResult.rows[0] : null;
+
+    if (!hospede) {
+      return res.status(404).json({ error: 'Hóspede não encontrado' });
+    }
+
+    if (!hospede.idhospede) {
+      return res.status(400).json({ error: 'Hóspede não possui IDHOSPEDE no Oracle. Execute a busca de compatibilidade primeiro.' });
+    }
+
+    // Preparar dados para atualização
+    const dadosAtualizacao = {
+      idHospede: hospede.idhospede,
+      email: hospede.email,
+      cpf: hospede.cpf,
+      telefone: hospede.telefone,
+      cep: hospede.cep,
+      dataNascimento: hospede.data_nascimento,
+      endereco: hospede.endereco,
+      cidade: hospede.cidade,
+      estado: hospede.estado,
+      bairro: hospede.bairro,
+      numero: hospede.numero,
+      complemento: hospede.complemento
+    };
+
+    // Atualizar no Oracle
+    const resultado = await atualizarDadosHospedeOracle(dadosAtualizacao);
+
+    // Status 3: Integrado (reserva vinculada e dados atualizados no Oracle)
+    await db.query('UPDATE hospedes SET status = 3 WHERE id = ?', [req.params.id]);
+
+    // Buscar hóspede atualizado
+    const hospedeAtualizado = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+    const hospedeAtual = hospedeAtualizado.rows?.[0] || hospede;
+
+    // Registrar log
+    await salvarLogCompatibilidade(db, {
+      hospedeId: hospede.id,
+      nomeCompleto: hospede.nome_completo,
+      dataChegada: hospede.entrada,
+      dataPartida: hospede.saida,
+      tipoAcao: 'sucesso',
+      mensagem: `Dados atualizados no Oracle: ${resultado.updatedFields.join(', ')}`,
+      reservaEncontrada: resultado
+    });
+
+    res.json({
+      message: resultado.message,
+      updatedFields: resultado.updatedFields,
+      hospede: hospedeAtual
+    });
+  } catch (err) {
+    if (err && err.message && err.message.includes('Oracle Database indisponível')) {
+      return res.status(503).json({ error: err.message });
+    }
+
+    // Registrar erro no log
+    try {
+      const db = getSqliteDb();
+      const hospedeResult = await db.query('SELECT * FROM hospedes WHERE id = ?', [req.params.id]);
+      const hospede = hospedeResult.rows?.[0];
+
+      if (hospede) {
+        await salvarLogCompatibilidade(db, {
+          hospedeId: hospede.id,
+          nomeCompleto: hospede.nome_completo,
+          dataChegada: hospede.entrada,
+          dataPartida: hospede.saida,
+          tipoAcao: 'erro',
+          mensagem: 'Erro ao atualizar dados no Oracle',
+          erroDetalhes: err.message
+        });
+      }
+    } catch (logErr) {
+      console.error('Erro ao salvar log de erro:', logErr.message);
+    }
+
     next(err);
   }
 });
