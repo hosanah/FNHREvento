@@ -123,6 +123,8 @@ async function startServer() {
     serverInstance = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 FNRHEvento rodando na porta ${PORT}`);
       console.log(`📍 FNRHEvento URL: http://localhost:${PORT}`);
+      console.log(`📚 FNRHEvento Swagger API: http://localhost:${PORT}/api-docs`);
+      console.log(`💚 FNRHEvento Health Check: http://localhost:${PORT}/health`);
       console.log(`🌍 FNRHEvento ambiente: ${process.env.NODE_ENV}`);
       console.log(`🔒 FNRHEvento CORS habilitado para: ${process.env.CORS_ORIGIN}`);
     });
