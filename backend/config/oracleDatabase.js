@@ -647,21 +647,21 @@ async function atualizarDadosHospedeOracle({
         }
       } else {
         // Registro não existe - fazer INSERT dando checkin
-        // Buscar próximo IDESTADA da sequence
+        // Buscar próximo IDHISTORICOESTADA da sequence
         const getNextIdQuery = `SELECT CM.SEQHISTORICOESTADA.NEXTVAL AS NEXT FROM DUAL`;
         const nextIdResult = await connection.execute(getNextIdQuery, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
-        const idEstada = nextIdResult.rows[0].NEXT;
+        const idHistoricoEstada = nextIdResult.rows[0].NEXT;
 
-        console.log(`🆕 Obtido IDESTADA da sequence: ${idEstada}`);
+        console.log(`🆕 Obtido IDHISTORICOESTADA da sequence: ${idHistoricoEstada}`);
 
         const insertHistorico = `INSERT INTO HISTORICOESTADA
-          (IDESTADA, IDHOSPEDE, IDHOTEL, IDCIDADEDESTINO, IDCIDADEORIGEM, MOTIVOVIAGEM, TRANSPORTE, DATACHEGADA, DATAPARTIDA)
-          VALUES (:idEstada, :idHospede, :idHotel, :idCidadeDestino, :idCidadeOrigem, :motivoViagem, :transporte,
+          (IDHISTORICOESTADA, IDHOSPEDE, IDHOTEL, IDCIDADEDESTINO, IDCIDADEORIGEM, MOTIVOVIAGEM, TRANSPORTE, DATACHEGADA, DATAPARTIDA)
+          VALUES (:idHistoricoEstada, :idHospede, :idHotel, :idCidadeDestino, :idCidadeOrigem, :motivoViagem, :transporte,
                   ${dataChegadaFormatada ? 'TO_DATE(:dataChegada, \'DD/MM/YYYY\')' : 'NULL'},
                   ${dataPartidaFormatada ? 'TO_DATE(:dataPartida, \'DD/MM/YYYY\')' : 'NULL'})`;
 
         const insertParams = {
-          idEstada,
+          idHistoricoEstada,
           idHospede,
           idHotel: 1,        // Sempre hotel 1
           idCidadeDestino: idCidades || null,

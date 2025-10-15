@@ -1,0 +1,230 @@
+<p-panel styleClass="hospedes-panel">
+  <ng-template pTemplate="header">
+    <div class="panel-header">
+      <div class="panel-header__titles">
+        <h2>Reservas Integradas</h2>
+        <p class="subtitle">Visualize as reservas já integradas ao sistema FNRH.</p>
+      </div>
+      <div class="panel-header__actions">
+        <span class="p-input-icon-left filter-input">
+          <i class="pi pi-search"></i>
+          <input
+            type="text"
+            pInputText
+            placeholder="Filtrar reservas integradas"
+            [(ngModel)]="filterTerm"
+            (ngModelChange)="onFilterChange()"
+          />
+        </span>
+      </div>
+    </div>
+  </ng-template>
+
+  <ng-container *ngIf="paginatedHospedes.length; else emptyState">
+    <div class="table-container">
+      <table class="hospedes-table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Telefone</th>
+            <th>Chegada</th>
+            <th>Partida</th>
+            <th>Status</th>
+            <th class="actions-column">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let h of paginatedHospedes">
+            <td>
+              <div class="name-cell">
+                <span class="name">{{ h.nome_completo || 'Hóspede sem nome' }}</span>
+                <small class="codigo" *ngIf="h.codigo">Código #{{ h.codigo }}</small>
+              </div>
+            </td>
+            <td>{{ h.email || '-' }}</td>
+            <td>{{ h.telefone || '-' }}</td>
+            <td>{{ h.entrada || '-' }}</td>
+            <td>{{ h.saida || '-' }}</td>
+            <td>
+              <span class="status-integrado">
+                <i class="pi pi-check-circle"></i> {{ getStatusLabel(h.status) }}
+              </span>
+            </td>
+            <td>
+              <div class="actions">
+                <p-button icon="pi pi-search" rounded (click)="showDetalhes(h)" [text]="true"></p-button>
+                <p-button icon="pi pi-list" rounded (click)="showLogs(h)" [text]="true" severity="secondary"></p-button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+</p-panel>
+
+<ng-template #emptyState>
+  <ng-container *ngIf="!filterTerm; else filteredEmpty">
+    <div class="empty-state">
+      <i class="pi pi-check-circle"></i>
+      <h3>Nenhuma reserva integrada</h3>
+      <p>As reservas que forem integradas ao FNRH aparecerão aqui.</p>
+    </div>
+  </ng-container>
+</ng-template>
+
+<ng-template #filteredEmpty>
+  <div class="empty-state">
+    <i class="pi pi-search"></i>
+    <h3>Nenhum resultado para o filtro</h3>
+    <p>Altere os termos de busca para visualizar outros registros.</p>
+  </div>
+</ng-template>
+
+<p-paginator
+  *ngIf="totalRecords"
+  [first]="page * rows"
+  [rows]="rows"
+  [rowsPerPageOptions]="[10, 20, 50]"
+  [totalRecords]="totalRecords"
+  (onPageChange)="onPageChange($event)"
+></p-paginator>
+
+<p-dialog
+  [(visible)]="detailDialogVisible"
+  [modal]="true"
+  [style]="{ width: '640px' }"
+  [breakpoints]="{ '960px': '90vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="detalhes-dialog"
+  (onHide)="onDialogHide()"
+  [header]="selectedHospede?.nome_completo || 'Detalhes da reserva'"
+>
+  <div class="dialog-header-info" *ngIf="selectedHospede">
+    <p-tag
+      *ngIf="selectedHospede.apto; else semApartamento"
+      severity="info"
+      [value]="'Apto ' + selectedHospede.apto"
+    ></p-tag>
+    <ng-template #semApartamento>
+      <p-tag severity="warning" value="Apto não informado"></p-tag>
+    </ng-template>
+    <span class="dialog-codigo" *ngIf="selectedHospede.codigo">Código #{{ selectedHospede.codigo }}</span>
+  </div>
+
+  <div class="info-grid" *ngIf="selectedHospede">
+    <div class="info-item">
+      <span class="label">E-mail</span>
+      <span class="value">{{ selectedHospede.email || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Telefone</span>
+      <span class="value">{{ selectedHospede.telefone || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Profissão</span>
+      <span class="value">{{ selectedHospede.profissao || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Documento</span>
+      <span class="value">{{ selectedHospede.identidade || selectedHospede.cpf || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Nascimento</span>
+      <span class="value">{{ selectedHospede.data_nascimento || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Sexo</span>
+      <span class="value">{{ selectedHospede.sexo || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Endereço</span>
+      <span class="value">{{ selectedHospede.endereco || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Cidade/UF</span>
+      <span class="value">{{ selectedHospede.cidade || '-' }} - {{ selectedHospede.estado || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">País</span>
+      <span class="value">{{ selectedHospede.pais || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">CEP</span>
+      <span class="value">{{ selectedHospede.cep || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Entrada</span>
+      <span class="value">{{ selectedHospede.entrada || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Saída</span>
+      <span class="value">{{ selectedHospede.saida || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">Status</span>
+      <span class="value">{{ getStatusLabel(selectedHospede.status) }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">ID Hóspede Oracle</span>
+      <span class="value">{{ selectedHospede.idhospede || '-' }}</span>
+    </div>
+    <div class="info-item">
+      <span class="label">ID Reserva Oracle</span>
+      <span class="value">{{ selectedHospede.idreservasfront || '-' }}</span>
+    </div>
+  </div>
+</p-dialog>
+
+<p-dialog
+  [(visible)]="logsDialogVisible"
+  [modal]="true"
+  [style]="{ width: '900px' }"
+  [breakpoints]="{ '960px': '95vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="logs-dialog"
+  [header]="'Logs de Integração - ' + (selectedHospedeForLogs?.nome_completo || '')"
+>
+  <div *ngIf="loadingLogs" style="text-align: center; padding: 2rem;">
+    <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+    <p>Carregando logs...</p>
+  </div>
+
+  <div *ngIf="!loadingLogs && hospedeLogsList.length === 0" style="text-align: center; padding: 2rem;">
+    <i class="pi pi-info-circle" style="font-size: 2rem; color: #999;"></i>
+    <p>Nenhum log encontrado para esta reserva</p>
+  </div>
+
+  <p-table
+    *ngIf="!loadingLogs && hospedeLogsList.length > 0"
+    [value]="hospedeLogsList"
+    styleClass="p-datatable-sm"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 100px">Chegada</th>
+        <th style="width: 100px">Partida</th>
+        <th style="width: 120px">Tipo</th>
+        <th>Mensagem</th>
+        <th style="width: 160px">Data/Hora</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-log>
+      <tr>
+        <td>{{ log.data_chegada || '-' }}</td>
+        <td>{{ log.data_partida || '-' }}</td>
+        <td>
+          <p-tag
+            [value]="getTipoAcaoLabel(log.tipo_acao)"
+            [severity]="getTipoAcaoSeverity(log.tipo_acao)"
+          ></p-tag>
+        </td>
+        <td>{{ log.mensagem }}</td>
+        <td>{{ formatDateTime(log.created_at) }}</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-dialog>

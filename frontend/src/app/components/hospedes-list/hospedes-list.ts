@@ -60,8 +60,7 @@ export class HospedesListComponent implements OnInit {
   readonly statusOptions = [
     { label: 'Todos', value: null },
     { label: 'Importado', value: 1 },
-    { label: 'Compatível', value: 2 },
-    { label: 'Integrado', value: 3 }
+    { label: 'Compatível', value: 2 }
   ];
 
   constructor(
@@ -71,7 +70,8 @@ export class HospedesListComponent implements OnInit {
 
   ngOnInit(): void {
     this.service.list().subscribe(data => {
-      this.hospedes = data ?? [];
+      // Filtrar apenas os hóspedes com status 1 (Importado) e 2 (Compatível)
+      this.hospedes = (data ?? []).filter(h => h.status === 1 || h.status === 2);
       this.page = 0;
     });
   }

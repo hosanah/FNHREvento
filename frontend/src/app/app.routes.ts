@@ -19,6 +19,10 @@ export const routes: Routes = [
         loadComponent: () => import('./components/hospedes-list/hospedes-list').then(m => m.HospedesListComponent)
       },
       {
+        path: 'reservas-integradas',
+        loadComponent: () => import('./components/reservas-integradas/reservas-integradas').then(m => m.ReservasIntegradasComponent)
+      },
+      {
         path: 'logs',
         loadComponent: () => import('./components/logs-compatibilidade/logs-compatibilidade').then(m => m.LogsCompatibilidadeComponent)
       },

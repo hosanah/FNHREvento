@@ -29,6 +29,7 @@ export class AppMenu {
         items: [
             { label: 'Importar', icon: 'pi pi-fw pi-upload', routerLink: ['/hospedes/import'] },
             { label: 'Listagem', icon: 'pi pi-fw pi-users', routerLink: ['/hospedes'] },
+            { label: 'Reservas Integradas', icon: 'pi pi-fw pi-check-circle', routerLink: ['/reservas-integradas'] },
             { label: 'Logs', icon: 'pi pi-fw pi-list', routerLink: ['/logs'] },
         ]
       },
