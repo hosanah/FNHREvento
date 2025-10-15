@@ -4,8 +4,12 @@
 # Environment variables
 .env
 **/.env
-.env.*
-**/.env.*
+.env.development
+.env.production
+.env.local
+**/.env.development
+**/.env.production
+**/.env.local
 
 # Ignore backend package lock
 backend/package-lock.json
