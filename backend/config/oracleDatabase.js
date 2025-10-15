@@ -206,11 +206,12 @@ async function buscarReservaOracle({
  *
  * Esta função realiza atualizações em múltiplas tabelas do Oracle em uma única transação:
  * 1. PESSOA - Email e documento
- * 2. PESSOAFISICA - Data de nascimento
+ * 2. PESSOAFISICA - Data de nascimento e sexo (insere ou atualiza)
  * 3. DOCPESSOA - CPF (insere ou atualiza)
  * 4. ENDPESS - Endereço completo com busca de IDCIDADES
  * 5. TELENDPESS - Telefone (insere ou atualiza)
  * 6. CONTATOPESS - Registro de contato (apenas insere se não existir)
+ * 7. HISTORICOESTADA - Histórico de estadias com check-in (insere ou atualiza)
  *
  * @param {Object} params - Parâmetros de atualização
  * @param {number} params.idHospede - ID do hóspede no Oracle (IDPESSOA)
@@ -219,12 +220,15 @@ async function buscarReservaOracle({
  * @param {string} [params.telefone] - Telefone do hóspede (pode conter máscara)
  * @param {string} [params.cep] - CEP do hóspede (pode conter máscara)
  * @param {string|Date} [params.dataNascimento] - Data de nascimento (DD/MM/YYYY, YYYY-MM-DD ou Date)
+ * @param {string} [params.sexo] - Sexo do hóspede (M ou F)
  * @param {string} [params.endereco] - Logradouro completo
  * @param {string} [params.cidade] - Nome da cidade (busca IDCIDADES na tabela CIDADES)
  * @param {string} [params.estado] - UF do estado
  * @param {string} [params.bairro] - Bairro
  * @param {string} [params.numero] - Número do endereço
  * @param {string} [params.complemento] - Complemento do endereço
+ * @param {string|Date} [params.dataCheckin] - Data de check-in (DD/MM/YYYY, YYYY-MM-DD ou Date)
+ * @param {string|Date} [params.dataCheckout] - Data de check-out (DD/MM/YYYY, YYYY-MM-DD ou Date)
  * @returns {Promise<Object>} Resultado da operação com campos atualizados
  * @throws {Error} Se houver erro na atualização (com rollback automático)
  */
@@ -235,12 +239,15 @@ async function atualizarDadosHospedeOracle({
   telefone,
   cep,
   dataNascimento,
+  sexo,
   endereco,
   cidade,
   estado,
   bairro,
   numero,
-  complemento
+  complemento,
+  dataCheckin,
+  dataCheckout
 }) {
   // Validação básica
   if (!idHospede) {
@@ -252,6 +259,10 @@ async function atualizarDadosHospedeOracle({
   try {
     const updates = [];
 
+    // Variáveis que serão usadas em múltiplas seções
+    let idCidades = null;
+    let nomeCidadeEncontrada = null;
+
     // 1. Atualizar EMAIL na tabela PESSOA
     if (email) {
       const updatePessoa = `UPDATE PESSOA SET EMAIL = :email WHERE IDPESSOA = :idHospede`;
@@ -259,28 +270,70 @@ async function atualizarDadosHospedeOracle({
       updates.push('EMAIL na tabela PESSOA');
     }
 
-    // 2. Atualizar DATA DE NASCIMENTO na tabela PESSOAFISICA
-    if (dataNascimento) {
-      console.log('🔍 Data de nascimento recebida:', dataNascimento, 'Tipo:', typeof dataNascimento);
+    // 2. Inserir ou Atualizar DATA DE NASCIMENTO e SEXO na tabela PESSOAFISICA
+    if (dataNascimento || sexo) {
+      // Verificar se já existe registro na PESSOAFISICA
+      const checkPessoaFisica = `SELECT COUNT(*) as COUNT FROM PESSOAFISICA WHERE IDPESSOA = :idHospede`;
+      const checkResult = await connection.execute(checkPessoaFisica, { idHospede }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const count = checkResult.rows[0].COUNT;
 
-      // A data já vem no formato DD/MM/YYYY do SQLite
-      let dataFormatada = dataNascimento;
+      let dataFormatada = null;
+      if (dataNascimento) {
+        console.log('🔍 Data de nascimento recebida:', dataNascimento, 'Tipo:', typeof dataNascimento);
 
-      // Se for um objeto Date, converter para DD/MM/YYYY
-      if (dataNascimento instanceof Date) {
-        dataFormatada = `${String(dataNascimento.getDate()).padStart(2, '0')}/${String(dataNascimento.getMonth() + 1).padStart(2, '0')}/${dataNascimento.getFullYear()}`;
+        // A data já vem no formato DD/MM/YYYY do SQLite
+        dataFormatada = dataNascimento;
+
+        // Se for um objeto Date, converter para DD/MM/YYYY
+        if (dataNascimento instanceof Date) {
+          dataFormatada = `${String(dataNascimento.getDate()).padStart(2, '0')}/${String(dataNascimento.getMonth() + 1).padStart(2, '0')}/${dataNascimento.getFullYear()}`;
+        }
+        // Se for string ISO (YYYY-MM-DD), converter para DD/MM/YYYY
+        else if (typeof dataNascimento === 'string' && dataNascimento.match(/^\d{4}-\d{2}-\d{2}/)) {
+          const date = new Date(dataNascimento);
+          dataFormatada = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+        }
+
+        console.log('📅 Data formatada para Oracle:', dataFormatada);
       }
-      // Se for string ISO (YYYY-MM-DD), converter para DD/MM/YYYY
-      else if (typeof dataNascimento === 'string' && dataNascimento.match(/^\d{4}-\d{2}-\d{2}/)) {
-        const date = new Date(dataNascimento);
-        dataFormatada = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+
+      if (count > 0) {
+        // Registro existe - fazer UPDATE
+        const updateFields = [];
+        const updateParams = { idHospede };
+
+        if (dataFormatada) {
+          updateFields.push('DATANASC = TO_DATE(:dataNascimento, \'DD/MM/YYYY\')');
+          updateParams.dataNascimento = dataFormatada;
+        }
+
+        if (sexo) {
+          updateFields.push('SEXO = :sexo');
+          updateParams.sexo = sexo;
+        }
+
+        if (updateFields.length > 0) {
+          const updatePessoaFisica = `UPDATE PESSOAFISICA SET ${updateFields.join(', ')} WHERE IDPESSOA = :idHospede`;
+          await connection.execute(updatePessoaFisica, updateParams, { autoCommit: false });
+          updates.push(`PESSOAFISICA atualizada: ${updateFields.join(', ')}`);
+        }
+      } else {
+        // Registro não existe - fazer INSERT
+        const insertPessoaFisica = `INSERT INTO PESSOAFISICA (IDPESSOA, DATANASC, SEXO)
+                                     VALUES (:idHospede, ${dataFormatada ? 'TO_DATE(:dataNascimento, \'DD/MM/YYYY\')' : 'NULL'}, :sexo)`;
+
+        const insertParams = {
+          idHospede,
+          sexo: sexo || null
+        };
+
+        if (dataFormatada) {
+          insertParams.dataNascimento = dataFormatada;
+        }
+
+        await connection.execute(insertPessoaFisica, insertParams, { autoCommit: false });
+        updates.push('PESSOAFISICA inserida com DATANASC e SEXO');
       }
-
-      console.log('📅 Data formatada para Oracle:', dataFormatada);
-
-      const updatePessoaFisica = `UPDATE PESSOAFISICA SET DATANASC = TO_DATE(:dataNascimento, 'DD/MM/YYYY') WHERE IDPESSOA = :idHospede`;
-      await connection.execute(updatePessoaFisica, { dataNascimento: dataFormatada, idHospede }, { autoCommit: false });
-      updates.push('DATA DE NASCIMENTO na tabela PESSOAFISICA');
     }
 
     // 3. Inserir ou Atualizar CPF na tabela DOCPESSOA e PESSOA
@@ -333,16 +386,31 @@ async function atualizarDadosHospedeOracle({
 
       // Buscar IDCIDADES na tabela CIDADES se o nome da cidade foi fornecido
       // Usa UPPER para busca case-insensitive
-      let idCidades = null;
       if (cidade) {
-        const getCidadeQuery = `SELECT IDCIDADES FROM CIDADES WHERE UPPER(NOME) = UPPER(:cidade)`;
+        const getCidadeQuery = `SELECT IDCIDADES, NOME FROM CIDADES WHERE UPPER(NOME) = UPPER(:cidade)`;
         const cidadeResult = await connection.execute(getCidadeQuery, { cidade }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
 
         if (cidadeResult.rows.length > 0) {
           idCidades = cidadeResult.rows[0].IDCIDADES;
-          console.log(`✅ Cidade '${cidade}' encontrada com IDCIDADES: ${idCidades}`);
+          nomeCidadeEncontrada = cidadeResult.rows[0].NOME;
+          console.log(`✅ Cidade '${cidade}' encontrada com IDCIDADES: ${idCidades}, NOME: ${nomeCidadeEncontrada}`);
         } else {
           console.warn(`⚠️  Cidade '${cidade}' não encontrada na tabela CIDADES`);
+        }
+      }
+
+      // Se não tiver IDCIDADES mas o endereço já tem um, buscar o nome da cidade
+      if (!idCidades && idEndereco) {
+        const getCurrentCidadeQuery = `SELECT C.IDCIDADES, C.NOME
+                                        FROM ENDPESS E
+                                        INNER JOIN CIDADES C ON E.IDCIDADES = C.IDCIDADES
+                                        WHERE E.IDENDERECO = :idEndereco`;
+        const currentCidadeResult = await connection.execute(getCurrentCidadeQuery, { idEndereco }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+
+        if (currentCidadeResult.rows.length > 0) {
+          idCidades = currentCidadeResult.rows[0].IDCIDADES;
+          nomeCidadeEncontrada = currentCidadeResult.rows[0].NOME;
+          console.log(`ℹ️  Usando cidade existente do endereço - IDCIDADES: ${idCidades}, NOME: ${nomeCidadeEncontrada}`);
         }
       }
 
@@ -364,21 +432,33 @@ async function atualizarDadosHospedeOracle({
         enderecoUpdates.push('NOME = :nome');
         enderecoParams.logradouro = endereco;
         enderecoParams.nome = endereco;
-      }
 
-      if (numero) {
+        // NUMERO é obrigatório: se não informado, usar "SN" (Sem Número)
         enderecoUpdates.push('NUMERO = :numero');
-        enderecoParams.numero = numero;
+        enderecoParams.numero = numero && numero.trim() !== '' ? numero : 'SN';
+
+        // BAIRRO é obrigatório: prioridade: bairro > cidade > nome da cidade do banco
+        let bairroFinal = bairro;
+        if (!bairroFinal || bairroFinal.trim() === '') {
+          // Se não tem bairro, usar cidade informada
+          bairroFinal = cidade;
+        }
+        if (!bairroFinal || bairroFinal.trim() === '') {
+          // Se não tem cidade informada, usar nome da cidade encontrada no banco
+          bairroFinal = nomeCidadeEncontrada;
+        }
+        if (bairroFinal && bairroFinal.trim() !== '') {
+          enderecoUpdates.push('BAIRRO = :bairro');
+          enderecoParams.bairro = bairroFinal;
+          console.log(`📍 Campo BAIRRO será atualizado com: "${bairroFinal}"`);
+        } else {
+          console.warn(`⚠️  Não foi possível determinar valor para BAIRRO`);
+        }
       }
 
       if (complemento) {
         enderecoUpdates.push('COMPLEMENTO = :complemento');
         enderecoParams.complemento = complemento;
-      }
-
-      if (bairro) {
-        enderecoUpdates.push('BAIRRO = :bairro');
-        enderecoParams.bairro = bairro;
       }
 
       if (idCidades) {
@@ -389,6 +469,7 @@ async function atualizarDadosHospedeOracle({
       // Executar UPDATE se houver campos para atualizar
       if (enderecoUpdates.length > 0) {
         const updateEndPess = `UPDATE ENDPESS SET ${enderecoUpdates.join(', ')} WHERE IDENDERECO = :idEndereco`;
+        console.log(`📍 Atualizando endereço no Oracle:`, enderecoParams);
         await connection.execute(updateEndPess, enderecoParams, { autoCommit: false });
         updates.push(`Endereço na tabela ENDPESS: ${enderecoUpdates.join(', ')}`);
       }
@@ -491,6 +572,115 @@ async function atualizarDadosHospedeOracle({
         updates.push('Registro inserido na tabela CONTATOPESS');
       } else {
         console.log(`ℹ️  Registro já existe na CONTATOPESS para IDENDERECO ${idEndereco}, pulando inserção`);
+      }
+    }
+
+    // 7. Inserir ou Atualizar HISTORICOESTADA (histórico de estadias)
+    if (dataCheckin || dataCheckout) {
+      // Verificar se já existe registro na HISTORICOESTADA
+      const checkHistorico = `SELECT COUNT(*) as COUNT FROM HISTORICOESTADA WHERE IDHOSPEDE = :idHospede`;
+      const checkHistoricoResult = await connection.execute(checkHistorico, { idHospede }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const historicoCount = checkHistoricoResult.rows[0].COUNT;
+
+      // Formatar datas para Oracle (DD/MM/YYYY)
+      let dataChegadaFormatada = null;
+      let dataPartidaFormatada = null;
+
+      if (dataCheckin) {
+        if (dataCheckin instanceof Date) {
+          dataChegadaFormatada = `${String(dataCheckin.getDate()).padStart(2, '0')}/${String(dataCheckin.getMonth() + 1).padStart(2, '0')}/${dataCheckin.getFullYear()}`;
+        } else if (typeof dataCheckin === 'string' && dataCheckin.match(/^\d{4}-\d{2}-\d{2}/)) {
+          const date = new Date(dataCheckin);
+          dataChegadaFormatada = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+        } else if (typeof dataCheckin === 'string' && dataCheckin.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+          dataChegadaFormatada = dataCheckin;
+        }
+      }
+
+      if (dataCheckout) {
+        if (dataCheckout instanceof Date) {
+          dataPartidaFormatada = `${String(dataCheckout.getDate()).padStart(2, '0')}/${String(dataCheckout.getMonth() + 1).padStart(2, '0')}/${dataCheckout.getFullYear()}`;
+        } else if (typeof dataCheckout === 'string' && dataCheckout.match(/^\d{4}-\d{2}-\d{2}/)) {
+          const date = new Date(dataCheckout);
+          dataPartidaFormatada = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+        } else if (typeof dataCheckout === 'string' && dataCheckout.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+          dataPartidaFormatada = dataCheckout;
+        }
+      }
+
+      console.log(`🗓️  Datas formatadas - Chegada: ${dataChegadaFormatada}, Partida: ${dataPartidaFormatada}`);
+
+      if (historicoCount > 0) {
+        // Registro existe - fazer UPDATE
+        const updateFields = [];
+        const updateParams = { idHospede };
+
+        if (idCidades) {
+          updateFields.push('IDCIDADEDESTINO = :idCidadeDestino');
+          updateFields.push('IDCIDADEORIGEM = :idCidadeOrigem');
+          updateParams.idCidadeDestino = idCidades;
+          updateParams.idCidadeOrigem = idCidades;
+        }
+
+        updateFields.push('MOTIVOVIAGEM = :motivoViagem');
+        updateFields.push('TRANSPORTE = :transporte');
+        updateFields.push('IDHOTEL = :idHotel');
+        updateParams.motivoViagem = 'L'; // Sempre Lazer
+        updateParams.transporte = 'A';   // Sempre Aéreo
+        updateParams.idHotel = 1;        // Sempre hotel 1
+
+        if (dataChegadaFormatada) {
+          updateFields.push('DATACHEGADA = TO_DATE(:dataChegada, \'DD/MM/YYYY\')');
+          updateParams.dataChegada = dataChegadaFormatada;
+        }
+
+        if (dataPartidaFormatada) {
+          updateFields.push('DATAPARTIDA = TO_DATE(:dataPartida, \'DD/MM/YYYY\')');
+          updateParams.dataPartida = dataPartidaFormatada;
+        }
+
+        if (updateFields.length > 0) {
+          const updateHistorico = `UPDATE HISTORICOESTADA SET ${updateFields.join(', ')} WHERE IDHOSPEDE = :idHospede`;
+          console.log(`📝 Atualizando HISTORICOESTADA:`, updateParams);
+          await connection.execute(updateHistorico, updateParams, { autoCommit: false });
+          updates.push(`HISTORICOESTADA atualizada: ${updateFields.join(', ')}`);
+        }
+      } else {
+        // Registro não existe - fazer INSERT dando checkin
+        // Buscar próximo IDESTADA da sequence
+        const getNextIdQuery = `SELECT CM.SEQHISTORICOESTADA.NEXTVAL AS NEXT FROM DUAL`;
+        const nextIdResult = await connection.execute(getNextIdQuery, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        const idEstada = nextIdResult.rows[0].NEXT;
+
+        console.log(`🆕 Obtido IDESTADA da sequence: ${idEstada}`);
+
+        const insertHistorico = `INSERT INTO HISTORICOESTADA
+          (IDESTADA, IDHOSPEDE, IDHOTEL, IDCIDADEDESTINO, IDCIDADEORIGEM, MOTIVOVIAGEM, TRANSPORTE, DATACHEGADA, DATAPARTIDA)
+          VALUES (:idEstada, :idHospede, :idHotel, :idCidadeDestino, :idCidadeOrigem, :motivoViagem, :transporte,
+                  ${dataChegadaFormatada ? 'TO_DATE(:dataChegada, \'DD/MM/YYYY\')' : 'NULL'},
+                  ${dataPartidaFormatada ? 'TO_DATE(:dataPartida, \'DD/MM/YYYY\')' : 'NULL'})`;
+
+        const insertParams = {
+          idEstada,
+          idHospede,
+          idHotel: 1,        // Sempre hotel 1
+          idCidadeDestino: idCidades || null,
+          idCidadeOrigem: idCidades || null,
+          motivoViagem: 'L', // Lazer
+          transporte: 'A'    // Aéreo
+        };
+
+        if (dataChegadaFormatada) {
+          insertParams.dataChegada = dataChegadaFormatada;
+        }
+
+        if (dataPartidaFormatada) {
+          insertParams.dataPartida = dataPartidaFormatada;
+        }
+
+        console.log(`🆕 Inserindo HISTORICOESTADA (check-in):`, insertParams);
+        await connection.execute(insertHistorico, insertParams, { autoCommit: false });
+        updates.push('HISTORICOESTADA inserida com check-in');
       }
     }
 

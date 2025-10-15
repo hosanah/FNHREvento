@@ -9,6 +9,7 @@ import { TagModule } from 'primeng/tag';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
+import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
 import { HospedesService } from '../../services/hospedes.service';
 
@@ -26,6 +27,7 @@ import { HospedesService } from '../../services/hospedes.service';
     DialogModule,
     InputTextModule,
     TableModule,
+    SelectModule,
   ],
   templateUrl: './hospedes-list.html',
   styleUrls: ['./hospedes-list.scss']
@@ -38,6 +40,7 @@ export class HospedesListComponent implements OnInit {
   page = 0;
   rows = 10;
   filterTerm = '';
+  filterStatus: number | null = null;
   detailDialogVisible = false;
   selectedHospede: any | null = null;
   logsDialogVisible = false;
@@ -53,6 +56,13 @@ export class HospedesListComponent implements OnInit {
     2: 'Compatível',
     3: 'Integrado'
   };
+
+  readonly statusOptions = [
+    { label: 'Todos', value: null },
+    { label: 'Importado', value: 1 },
+    { label: 'Compatível', value: 2 },
+    { label: 'Integrado', value: 3 }
+  ];
 
   constructor(
     private service: HospedesService,
@@ -78,23 +88,30 @@ export class HospedesListComponent implements OnInit {
 
   get filteredHospedes(): any[] {
     const term = this.filterTerm.trim().toLowerCase();
+    let filtered = this.hospedes;
 
-    if (!term) {
-      return this.hospedes;
+    // Filtro por status
+    if (this.filterStatus !== null) {
+      filtered = filtered.filter(hospede => hospede.status === this.filterStatus);
     }
 
-    return this.hospedes.filter(hospede => {
-      const values = [
-        hospede?.nome_completo,
-        hospede?.email,
-        hospede?.telefone,
-        hospede?.apto,
-        hospede?.codigo,
-        hospede?.status,
-      ];
+    // Filtro por texto
+    if (term) {
+      filtered = filtered.filter(hospede => {
+        const values = [
+          hospede?.nome_completo,
+          hospede?.email,
+          hospede?.telefone,
+          hospede?.apto,
+          hospede?.codigo,
+          hospede?.status,
+        ];
 
-      return values.some(value => this.includesTerm(value, term));
-    });
+        return values.some(value => this.includesTerm(value, term));
+      });
+    }
+
+    return filtered;
   }
 
   buscarCompatibilidade(hospede: any): void {

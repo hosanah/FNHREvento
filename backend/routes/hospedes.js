@@ -33,6 +33,94 @@ async function adicionarColunaSeNecessario(db, nomesExistentes, coluna, definica
 
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Extrai o número do endereço
+ * Exemplos:
+ * "Av Presidente Castelo Branco, 5365" -> { logradouro: "Av Presidente Castelo Branco", numero: "5365" }
+ * "Rua das Flores 123" -> { logradouro: "Rua das Flores", numero: "123" }
+ * "Avenida Central" -> { logradouro: "Avenida Central", numero: null }
+ */
+function extrairNumeroDoEndereco(endereco) {
+  if (!endereco || typeof endereco !== 'string') {
+    return { logradouro: endereco || '', numero: null };
+  }
+
+  const enderecoTrim = endereco.trim();
+
+  // Padrão 1: "Endereço, 123" ou "Endereço , 123"
+  const pattern1 = /^(.+?)\s*,\s*(\d+[\w-]*)$/;
+  const match1 = enderecoTrim.match(pattern1);
+  if (match1) {
+    return {
+      logradouro: match1[1].trim(),
+      numero: match1[2].trim()
+    };
+  }
+
+  // Padrão 2: "Endereço 123" (número no final, sem vírgula)
+  const pattern2 = /^(.+?)\s+(\d+[\w-]*)$/;
+  const match2 = enderecoTrim.match(pattern2);
+  if (match2) {
+    return {
+      logradouro: match2[1].trim(),
+      numero: match2[2].trim()
+    };
+  }
+
+  // Sem número encontrado
+  return { logradouro: enderecoTrim, numero: null };
+}
+
+/**
+ * Converte valor de data do Excel para formato DD/MM/YYYY
+ * A biblioteca xlsx pode retornar datas como Date objects ou números seriais
+ */
+function converterDataExcel(valor) {
+  if (!valor) return null;
+
+  // Se for um objeto Date (xlsx já converteu)
+  if (valor instanceof Date) {
+    const day = String(valor.getDate()).padStart(2, '0');
+    const month = String(valor.getMonth() + 1).padStart(2, '0');
+    const year = valor.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  // Se já for uma string de data válida (DD/MM/YYYY), retornar
+  if (typeof valor === 'string') {
+    const datePattern = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (datePattern.test(valor.trim())) {
+      return valor.trim();
+    }
+
+    const cleaned = valor.trim();
+
+    // Tentar formato ISO (YYYY-MM-DD)
+    const isoPattern = /^(\d{4})-(\d{2})-(\d{2})/;
+    const isoMatch = cleaned.match(isoPattern);
+    if (isoMatch) {
+      return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+    }
+  }
+
+  // Se for número serial do Excel (caso xlsx não converta automaticamente)
+  if (typeof valor === 'number') {
+    // Excel data serial: dias desde 30/12/1899
+    const excelEpoch = new Date(1899, 11, 30);
+    const days = Math.floor(valor);
+    const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  }
+
+  console.warn(`⚠️ Não foi possível converter data: ${valor} (tipo: ${typeof valor})`);
+  return null;
+}
+
 function criarDataUtc(year, month, day) {
   const data = new Date(Date.UTC(year, month - 1, day));
   if (Number.isNaN(data.getTime())) return null;
@@ -220,9 +308,9 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     }
 
     const filePath = req.file.path;
-    const workbook = XLSX.readFile(filePath);
+    const workbook = XLSX.readFile(filePath, { cellDates: true });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
 
     const db = getSqliteDb();
     await garantirColunasExtras(db);
@@ -237,14 +325,28 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
         identidade, cpf, telefone, pais, cep, dataNascimento, sexo, entrada, saida
       ] = r;
 
+      // Extrair número do endereço
+      const enderecoParseado = extrairNumeroDoEndereco(endereco);
+      const logradouro = enderecoParseado.logradouro;
+      const numero = enderecoParseado.numero;
+
+      // Converter datas do Excel para formato DD/MM/YYYY
+      const dataNascimentoFormatada = converterDataExcel(dataNascimento);
+      const entradaFormatada = converterDataExcel(entrada);
+      const saidaFormatada = converterDataExcel(saida);
+
+      console.log(`📍 Importando: "${endereco}" -> Logradouro: "${logradouro}", Número: "${numero}"`);
+      console.log(`📅 Datas convertidas - Nascimento: ${dataNascimentoFormatada}, Entrada: ${entradaFormatada}, Saída: ${saidaFormatada}`);
+
       inserts.push(db.query(
-        `INSERT INTO hospedes (codigo, apto, nome_completo, endereco, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, data_nascimento, sexo, entrada, saida, status, idhospede, idreservasfront)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO hospedes (codigo, apto, nome_completo, endereco, numero, estado, email, profissao, cidade, identidade, cpf, telefone, pais, cep, data_nascimento, sexo, entrada, saida, status, idhospede, idreservasfront)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           codigo,
           apto,
           nomeCompleto,
-          endereco,
+          logradouro,
+          numero,
           estado,
           email,
           profissao,
@@ -254,10 +356,10 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
           telefone,
           pais,
           cep,
-          dataNascimento,
+          dataNascimentoFormatada,
           sexo,
-          entrada,
-          saida,
+          entradaFormatada,
+          saidaFormatada,
           1, // Status 1: Importado (sem reserva vinculada)
           null,
           null
@@ -365,7 +467,8 @@ router.post('/compatibilidade', async (req, res, next) => {
     const db = getSqliteDb();
     await garantirColunasExtras(db);
 
-    const hospedesResult = await db.query('SELECT * FROM hospedes');
+    // Buscar apenas hóspedes que NÃO estão com status 3 (integrados/finalizados)
+    const hospedesResult = await db.query('SELECT * FROM hospedes WHERE status != 3');
     const hospedes = hospedesResult.rows || [];
 
     const resultados = [];
@@ -587,12 +690,15 @@ router.post('/:id/atualizar-oracle', async (req, res, next) => {
       telefone: hospede.telefone,
       cep: hospede.cep,
       dataNascimento: hospede.data_nascimento,
+      sexo: hospede.sexo,
       endereco: hospede.endereco,
       cidade: hospede.cidade,
       estado: hospede.estado,
       bairro: hospede.bairro,
       numero: hospede.numero,
-      complemento: hospede.complemento
+      complemento: hospede.complemento,
+      dataCheckin: hospede.entrada,
+      dataCheckout: hospede.saida
     };
 
     // Atualizar no Oracle

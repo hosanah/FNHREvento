@@ -6,6 +6,15 @@
         <p class="subtitle">Visualize e gerencie os cadastros importados do hotel.</p>
       </div>
       <div class="panel-header__actions">
+        <p-select
+          [options]="statusOptions"
+          [(ngModel)]="filterStatus"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Filtrar por status"
+          [showClear]="true"
+          (onChange)="onFilterChange()"
+        ></p-select>
         <span class="p-input-icon-left filter-input">
           <i class="pi pi-search"></i>
           <input

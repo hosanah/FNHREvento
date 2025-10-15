@@ -52,9 +52,28 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true
 });
 
-// Configuração CORS
+// Configuração CORS com suporte a múltiplas origens
+// CORS_ORIGIN pode ser uma string única ou múltiplas URLs separadas por vírgula
+// Exemplo: CORS_ORIGIN=http://localhost:4200,https://app.exemplo.com,http://192.168.1.100:4200
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:4200')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(origin => origin.length > 0);
+
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
+  origin: function (origin, callback) {
+    // Permitir requisições sem origin (como mobile apps, Postman, etc)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Verificar se a origin está na lista permitida
+    if (corsOrigins.indexOf(origin) !== -1 || corsOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} não permitida pelo CORS`));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -126,7 +145,7 @@ async function startServer() {
       console.log(`📚 FNRHEvento Swagger API: http://localhost:${PORT}/api-docs`);
       console.log(`💚 FNRHEvento Health Check: http://localhost:${PORT}/health`);
       console.log(`🌍 FNRHEvento ambiente: ${process.env.NODE_ENV}`);
-      console.log(`🔒 FNRHEvento CORS habilitado para: ${process.env.CORS_ORIGIN}`);
+      console.log(`🔒 FNRHEvento CORS habilitado para: ${corsOrigins.join(', ')}`);
     });
   } catch (error) {
     console.error('❌ FNRHEvento: erro ao iniciar servidor:', error);
