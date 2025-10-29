@@ -1,0 +1,292 @@
+<p-panel styleClass="users-panel">
+  <ng-template pTemplate="header">
+    <div class="panel-header">
+      <div class="panel-header__titles">
+        <h2>Usuários</h2>
+        <p class="subtitle">Gerencie os usuários do sistema.</p>
+      </div>
+      <div class="panel-header__actions">
+        <span class="p-input-icon-left filter-input">
+          <i class="pi pi-search"></i>
+          <input
+            type="text"
+            pInputText
+            placeholder="Filtrar usuários"
+            [(ngModel)]="filterTerm"
+          />
+        </span>
+        <p-button
+          label="Novo Usuário"
+          icon="pi pi-plus"
+          (click)="showCreateDialog()"
+        ></p-button>
+      </div>
+    </div>
+  </ng-template>
+
+  <ng-container *ngIf="filteredUsers.length; else emptyState">
+    <div class="table-container">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Nome Completo</th>
+            <th>E-mail</th>
+            <th>Perfil</th>
+            <th>Status</th>
+            <th>Data de Criação</th>
+            <th class="actions-column">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of filteredUsers">
+            <td>
+              <strong>{{ user.username }}</strong>
+            </td>
+            <td>{{ user.full_name || '-' }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+              <p-tag
+                [value]="getRoleLabel(user.role)"
+                [severity]="getRoleSeverity(user.role)"
+              ></p-tag>
+            </td>
+            <td>
+              <p-tag
+                [value]="getStatusLabel(user.is_active)"
+                [severity]="getStatusSeverity(user.is_active)"
+              ></p-tag>
+            </td>
+            <td>{{ formatDateTime(user.created_at) }}</td>
+            <td>
+              <div class="actions">
+                <p-button
+                  icon="pi pi-pencil"
+                  rounded
+                  (click)="showEditDialog(user)"
+                  [text]="true"
+                  severity="info"
+                ></p-button>
+                <p-button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  (click)="deleteUser(user)"
+                  rounded
+                  [text]="true"
+                ></p-button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+</p-panel>
+
+<ng-template #emptyState>
+  <ng-container *ngIf="!filterTerm; else filteredEmpty">
+    <div class="empty-state">
+      <i class="pi pi-users"></i>
+      <h3>Nenhum usuário encontrado</h3>
+      <p>Clique em "Novo Usuário" para começar a cadastrar.</p>
+    </div>
+  </ng-container>
+</ng-template>
+
+<ng-template #filteredEmpty>
+  <div class="empty-state">
+    <i class="pi pi-search"></i>
+    <h3>Nenhum resultado para o filtro</h3>
+    <p>Altere os termos de busca para visualizar outros registros.</p>
+  </div>
+</ng-template>
+
+<!-- Dialog de Criação -->
+<p-dialog
+  [(visible)]="createDialogVisible"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  [breakpoints]="{ '960px': '95vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="user-dialog"
+  header="Novo Usuário"
+>
+  <div *ngIf="userEmEdicao" class="user-form">
+    <div class="form-grid">
+      <div class="form-item">
+        <label for="create-username">Username *</label>
+        <input
+          id="create-username"
+          type="text"
+          pInputText
+          [(ngModel)]="userEmEdicao.username"
+          placeholder="Nome de usuário"
+        />
+      </div>
+
+      <div class="form-item">
+        <label for="create-email">E-mail *</label>
+        <input
+          id="create-email"
+          type="email"
+          pInputText
+          [(ngModel)]="userEmEdicao.email"
+          placeholder="email@exemplo.com"
+        />
+      </div>
+
+      <div class="form-item full-width">
+        <label for="create-fullname">Nome Completo</label>
+        <input
+          id="create-fullname"
+          type="text"
+          pInputText
+          [(ngModel)]="userEmEdicao.full_name"
+          placeholder="Nome completo do usuário"
+        />
+      </div>
+
+      <div class="form-item">
+        <label for="create-password">Senha *</label>
+        <input
+          id="create-password"
+          type="password"
+          pInputText
+          [(ngModel)]="userEmEdicao.password"
+          placeholder="Senha forte"
+        />
+        <small class="password-hint">
+          Mínimo 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais
+        </small>
+      </div>
+
+      <div class="form-item">
+        <label for="create-role">Perfil *</label>
+        <p-select
+          id="create-role"
+          [options]="roleOptions"
+          [(ngModel)]="userEmEdicao.role"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Selecione o perfil"
+        ></p-select>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancelar"
+      icon="pi pi-times"
+      (click)="cancelDialog()"
+      [text]="true"
+    ></p-button>
+    <p-button
+      label="Criar"
+      icon="pi pi-check"
+      (click)="createUser()"
+      [loading]="salvandoUser"
+    ></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog de Edição -->
+<p-dialog
+  [(visible)]="editDialogVisible"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  [breakpoints]="{ '960px': '95vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="user-dialog"
+  [header]="'Editar Usuário - ' + (userEmEdicao?.username || '')"
+>
+  <div *ngIf="userEmEdicao" class="user-form">
+    <div class="form-grid">
+      <div class="form-item">
+        <label for="edit-username">Username</label>
+        <input
+          id="edit-username"
+          type="text"
+          pInputText
+          [(ngModel)]="userEmEdicao.username"
+        />
+      </div>
+
+      <div class="form-item">
+        <label for="edit-email">E-mail</label>
+        <input
+          id="edit-email"
+          type="email"
+          pInputText
+          [(ngModel)]="userEmEdicao.email"
+        />
+      </div>
+
+      <div class="form-item full-width">
+        <label for="edit-fullname">Nome Completo</label>
+        <input
+          id="edit-fullname"
+          type="text"
+          pInputText
+          [(ngModel)]="userEmEdicao.full_name"
+        />
+      </div>
+
+      <div class="form-item full-width">
+        <label for="edit-password">Nova Senha</label>
+        <input
+          id="edit-password"
+          type="password"
+          pInputText
+          [(ngModel)]="userEmEdicao.password"
+          placeholder="Deixe em branco para não alterar"
+        />
+        <small class="password-hint">
+          Deixe em branco para manter a senha atual
+        </small>
+      </div>
+
+      <div class="form-item">
+        <label for="edit-role">Perfil</label>
+        <p-select
+          id="edit-role"
+          [options]="roleOptions"
+          [(ngModel)]="userEmEdicao.role"
+          optionLabel="label"
+          optionValue="value"
+        ></p-select>
+      </div>
+
+      <div class="form-item">
+        <label for="edit-active">Status</label>
+        <p-select
+          id="edit-active"
+          [options]="[
+            { label: 'Ativo', value: 1 },
+            { label: 'Inativo', value: 0 }
+          ]"
+          [(ngModel)]="userEmEdicao.is_active"
+          optionLabel="label"
+          optionValue="value"
+        ></p-select>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancelar"
+      icon="pi pi-times"
+      (click)="cancelDialog()"
+      [text]="true"
+    ></p-button>
+    <p-button
+      label="Salvar"
+      icon="pi pi-check"
+      (click)="updateUser()"
+      [loading]="salvandoUser"
+    ></p-button>
+  </ng-template>
+</p-dialog>

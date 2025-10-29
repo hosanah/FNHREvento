@@ -26,6 +26,10 @@ export const routes: Routes = [
         path: 'logs',
         loadComponent: () => import('./components/logs-compatibilidade/logs-compatibilidade').then(m => m.LogsCompatibilidadeComponent)
       },
+      {
+        path: 'users',
+        loadComponent: () => import('./components/users-list/users-list').then(m => m.UsersListComponent)
+      },
       { path: '', redirectTo: 'home', pathMatch: 'full' }
     ]
   },

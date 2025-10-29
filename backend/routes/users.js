@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { getSqliteDb } = require('../config/database');
+const { authenticateToken } = require('../middleware/auth');
 
 // Função para validar senha forte
 function validateStrongPassword(password) {
@@ -56,7 +57,7 @@ async function requireAdmin(req, res, next) {
 }
 
 // GET /users - Listar todos os usuários (apenas administradores)
-router.get('/', requireAdmin, async (req, res) => {
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const db = getSqliteDb();
     const result = await db.query(
@@ -71,7 +72,7 @@ router.get('/', requireAdmin, async (req, res) => {
 });
 
 // GET /users/:id - Buscar usuário por ID
-router.get('/:id', requireAdmin, async (req, res) => {
+router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const db = getSqliteDb();
     const result = await db.query(
@@ -91,7 +92,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
 });
 
 // POST /users - Criar novo usuário (apenas administradores)
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { username, email, password, full_name, role } = req.body;
 
@@ -159,7 +160,7 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // PUT /users/:id - Atualizar usuário (apenas administradores)
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { username, email, password, full_name, role, is_active } = req.body;
     const userId = req.params.id;
@@ -249,7 +250,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 });
 
 // DELETE /users/:id - Deletar usuário (apenas administradores)
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     const db = getSqliteDb();

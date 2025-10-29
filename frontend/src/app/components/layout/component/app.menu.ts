@@ -33,6 +33,12 @@ export class AppMenu {
             { label: 'Logs', icon: 'pi pi-fw pi-list', routerLink: ['/logs'] },
         ]
       },
+      {
+        label: 'Administração',
+        items: [
+            { label: 'Usuários', icon: 'pi pi-fw pi-users', routerLink: ['/users'] },
+        ]
+      },
     ];
   }
 }

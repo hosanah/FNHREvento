@@ -37,6 +37,7 @@ export class HospedesListComponent implements OnInit {
   buscandoCompatibilidade: Record<number, boolean> = {};
   buscandoCompatibilidadeTodos = false;
   atualizandoOracle: Record<number, boolean> = {};
+  atualizandoOracleTodos = false;
   page = 0;
   rows = 10;
   filterTerm = '';
@@ -337,6 +338,43 @@ export class HospedesListComponent implements OnInit {
       error: (err) => {
         this.atualizandoOracle[id] = false;
         const mensagem = err?.error?.error || 'Erro ao atualizar dados no Oracle';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: mensagem,
+          life: 5000
+        });
+      }
+    });
+  }
+
+  atualizarOracleTodos(): void {
+    if (this.atualizandoOracleTodos) {
+      return;
+    }
+
+    this.atualizandoOracleTodos = true;
+
+    this.service.atualizarOracleTodos().subscribe({
+      next: (response) => {
+        this.atualizandoOracleTodos = false;
+
+        // Recarregar a lista de hóspedes para refletir as mudanças de status
+        this.service.list().subscribe(data => {
+          this.hospedes = (data ?? []).filter(h => h.status == 1 || h.status == 2);
+          this.adjustPage();
+        });
+
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Atualização Concluída',
+          detail: response.message || 'Atualização em massa concluída',
+          life: 7000
+        });
+      },
+      error: (err) => {
+        this.atualizandoOracleTodos = false;
+        const mensagem = err?.error?.error || 'Erro ao atualizar registros no Oracle';
         this.messageService.add({
           severity: 'error',
           summary: 'Erro',

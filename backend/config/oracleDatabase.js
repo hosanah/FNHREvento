@@ -143,8 +143,7 @@ async function getOracleConnection() {
 async function buscarReservaOracle({
   dataChegadaPrevista,
   dataPartidaPrevista,
-  nomeHospede,
-  sobrenomeHospede
+  nomeHospede
 }) {
   const chegada = validarDataParametro('dataChegadaPrevista', dataChegadaPrevista);
   const partida = validarDataParametro('dataPartidaPrevista', dataPartidaPrevista);
@@ -169,14 +168,12 @@ async function buscarReservaOracle({
           AND RF.STATUSRESERVA IN (1, 2)
           AND TRUNC(RF.DATACHEGPREVISTA) = TO_DATE(:dataChegadaPrevista, 'DD/MM/YYYY')
           AND TRUNC(RF.DATAPARTPREVISTA) = TO_DATE(:dataPartidaPrevista, 'DD/MM/YYYY')
-          AND UPPER(H.NOME) LIKE UPPER(:nomeHospede)
-          AND UPPER(H.SOBRENOME) LIKE UPPER(:sobrenomeHospede)`;
+          AND UPPER(H.NOME || ' ' || H.SOBRENOME) LIKE UPPER(:nomeHospede)`;
 
     const params = {
       dataChegadaPrevista: dataChegadaFormatada,
       dataPartidaPrevista: dataPartidaFormatada,
-      nomeHospede: `%${nomeHospede}%`,
-      sobrenomeHospede: `%${sobrenomeHospede}%`
+      nomeHospede: `%${nomeHospede}%`
     };
 
     console.log('🔍 Executando query Oracle:');

@@ -32,6 +32,14 @@
           [loading]="buscandoCompatibilidadeTodos"
           [disabled]="buscandoCompatibilidadeTodos"
         ></p-button>
+        <p-button
+          label="Atualizar Todos no FNRH"
+          icon="pi pi-upload"
+          (click)="atualizarOracleTodos()"
+          [loading]="atualizandoOracleTodos"
+          [disabled]="atualizandoOracleTodos"
+          severity="success"
+        ></p-button>
         <p-button label="Importar planilha" icon="pi pi-upload" [routerLink]="['/hospedes/import']"></p-button>
       </div>
     </div>

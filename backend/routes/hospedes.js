@@ -758,6 +758,145 @@ router.post('/:id/atualizar-oracle', async (req, res, next) => {
 });
 
 /**
+ * Atualizar todos os hóspedes compatíveis (status 2) no Oracle
+ */
+router.post('/atualizar-oracle-todos', async (req, res, next) => {
+  try {
+    const db = getSqliteDb();
+    await garantirColunasExtras(db);
+
+    console.log('🔄 Iniciando atualização em massa no Oracle...');
+
+    // Buscar todos os hóspedes com status 2 (Compatível)
+    const hospedesResult = await db.query(
+      'SELECT * FROM hospedes WHERE status = 2'
+    );
+
+    const hospedes = hospedesResult.rows || [];
+
+    if (hospedes.length === 0) {
+      return res.json({
+        message: 'Nenhum hóspede compatível encontrado para atualizar',
+        totalElegiveis: 0,
+        totalProcessados: 0,
+        sucessos: 0,
+        erros: 0,
+        resultados: []
+      });
+    }
+
+    console.log(`📊 Total de hóspedes compatíveis encontrados: ${hospedes.length}`);
+
+    const resultados = [];
+    let sucessos = 0;
+    let erros = 0;
+
+    // Processar cada hóspede
+    for (const hospede of hospedes) {
+      try {
+        console.log(`\n🔄 Processando: ${hospede.nome_completo} (ID: ${hospede.id})`);
+
+        // Preparar dados para atualização
+        const dadosAtualizacao = {
+          idReserva: hospede.idreservasfront,
+          idHospede: hospede.idhospede,
+          nomeCompleto: hospede.nome_completo,
+          email: hospede.email,
+          profissao: hospede.profissao,
+          cpf: hospede.cpf,
+          identidade: hospede.identidade,
+          telefone: hospede.telefone,
+          cep: hospede.cep,
+          dataNascimento: hospede.data_nascimento,
+          sexo: hospede.sexo,
+          endereco: hospede.endereco,
+          cidade: hospede.cidade,
+          estado: hospede.estado,
+          bairro: hospede.bairro,
+          numero: hospede.numero,
+          complemento: hospede.complemento,
+          dataCheckin: hospede.entrada,
+          dataCheckout: hospede.saida
+        };
+
+        // Atualizar no Oracle
+        const resultado = await atualizarDadosHospedeOracle(dadosAtualizacao);
+
+        // Atualizar status para 3 (Integrado)
+        await db.query('UPDATE hospedes SET status = 3 WHERE id = ?', [hospede.id]);
+
+        // Registrar log de sucesso
+        await salvarLogCompatibilidade(db, {
+          hospedeId: hospede.id,
+          nomeCompleto: hospede.nome_completo,
+          dataChegada: hospede.entrada,
+          dataPartida: hospede.saida,
+          tipoAcao: 'sucesso',
+          mensagem: `Atualização em massa - Dados atualizados no Oracle: ${resultado.updatedFields.join(', ')}`,
+          reservaEncontrada: resultado
+        });
+
+        resultados.push({
+          id: hospede.id,
+          nome: hospede.nome_completo,
+          sucesso: true,
+          message: resultado.message,
+          updatedFields: resultado.updatedFields
+        });
+
+        sucessos++;
+        console.log(`✅ Sucesso: ${hospede.nome_completo}`);
+
+      } catch (err) {
+        console.error(`❌ Erro ao processar ${hospede.nome_completo}:`, err.message);
+
+        // Registrar log de erro
+        try {
+          await salvarLogCompatibilidade(db, {
+            hospedeId: hospede.id,
+            nomeCompleto: hospede.nome_completo,
+            dataChegada: hospede.entrada,
+            dataPartida: hospede.saida,
+            tipoAcao: 'erro',
+            mensagem: `Atualização em massa - Erro: ${err.message}`,
+            erroDetalhes: err.stack
+          });
+        } catch (logErr) {
+          console.error('Erro ao salvar log:', logErr.message);
+        }
+
+        resultados.push({
+          id: hospede.id,
+          nome: hospede.nome_completo,
+          sucesso: false,
+          error: err.message
+        });
+
+        erros++;
+      }
+    }
+
+    console.log(`\n📊 Resumo da atualização em massa:`);
+    console.log(`   Total elegíveis: ${hospedes.length}`);
+    console.log(`   Sucessos: ${sucessos}`);
+    console.log(`   Erros: ${erros}`);
+
+    res.json({
+      message: `Atualização em massa concluída. ${sucessos} sucesso(s), ${erros} erro(s)`,
+      totalElegiveis: hospedes.length,
+      totalProcessados: hospedes.length,
+      sucessos,
+      erros,
+      resultados
+    });
+
+  } catch (err) {
+    console.error('❌ Erro na atualização em massa:', err);
+    next(err);
+  }
+});
+
+/**
  * Marcar hóspede como integrado ao PMS
  */
 router.post('/:id/integrar', async (req, res, next) => {
