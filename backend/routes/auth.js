@@ -68,7 +68,8 @@ router.post('/login', async (req, res, next) => {
               id: user.id,
               username: user.username,
               email: user.email,
-              fullName: user.full_name
+              fullName: user.full_name,
+              role: user.role || 'usuario'
             },
             expiresIn: '24h'
           });

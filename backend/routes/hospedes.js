@@ -310,7 +310,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     const filePath = req.file.path;
     const workbook = XLSX.readFile(filePath, { cellDates: true });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true });
 
     const db = getSqliteDb();
     await garantirColunasExtras(db);

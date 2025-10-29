@@ -18,6 +18,7 @@ const { ApiError, errorHandler } = require('./middleware/errorHandler');
 // Importar rotas
 const authRoutes = require('./routes/auth');
 const hospedeRoutes = require('./routes/hospedes');
+const userRoutes = require('./routes/users');
 
 // Importar configuração do banco de dados
 const { initSqliteDatabase, closeSqliteDatabase } = require('./config/database');
@@ -105,6 +106,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/auth/login', loginLimiter);
 app.use('/auth', authRoutes);
 app.use('/hospedes', hospedeRoutes);
+app.use('/users', userRoutes);
 
 // Rota para servir arquivos estáticos (se necessário)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

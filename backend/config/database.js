@@ -72,8 +72,8 @@ async function createSqliteDefaultUser() {
       try {
         const hashedPassword = await bcrypt.hash('admin123', 12);
         sqliteDb.run(
-          'INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)',
-          ['admin', 'admin@example.com', hashedPassword, 'Administrador'],
+          'INSERT INTO users (username, email, password, full_name, role) VALUES (?, ?, ?, ?, ?)',
+          ['admin', 'admin@example.com', hashedPassword, 'Administrador', 'administrador'],
           function(err) {
             if (err) {
               reject(err);
@@ -81,6 +81,7 @@ async function createSqliteDefaultUser() {
               console.log('✅ Usuário admin criado com sucesso');
               console.log('📧 Email: admin@example.com');
               console.log('🔑 Senha: admin123');
+              console.log('👑 Role: Administrador');
               resolve();
             }
           }

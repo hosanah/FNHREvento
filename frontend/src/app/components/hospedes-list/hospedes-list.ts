@@ -71,7 +71,7 @@ export class HospedesListComponent implements OnInit {
   ngOnInit(): void {
     this.service.list().subscribe(data => {
       // Filtrar apenas os hóspedes com status 1 (Importado) e 2 (Compatível)
-      this.hospedes = (data ?? []).filter(h => h.status === 1 || h.status === 2);
+      this.hospedes = (data ?? []).filter(h => h.status == 1 || h.status == 2);
       this.page = 0;
     });
   }
@@ -92,7 +92,7 @@ export class HospedesListComponent implements OnInit {
 
     // Filtro por status
     if (this.filterStatus !== null) {
-      filtered = filtered.filter(hospede => hospede.status === this.filterStatus);
+      filtered = filtered.filter(hospede => hospede.status == this.filterStatus);
     }
 
     // Filtro por texto

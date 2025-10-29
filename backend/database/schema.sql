@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   full_name TEXT,
+  role TEXT DEFAULT 'usuario' CHECK(role IN ('administrador', 'usuario')),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_active INTEGER DEFAULT 1

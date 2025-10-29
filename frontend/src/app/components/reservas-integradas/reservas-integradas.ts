@@ -56,7 +56,7 @@ export class ReservasIntegradasComponent implements OnInit {
   ngOnInit(): void {
     this.service.list().subscribe(data => {
       // Filtrar apenas os hóspedes com status 3 (Integrado)
-      this.hospedes = (data ?? []).filter(h => h.status === 3);
+      this.hospedes = (data ?? []).filter(h => h.status == 3);
       this.page = 0;
     });
   }
