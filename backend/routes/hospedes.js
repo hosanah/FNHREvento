@@ -335,6 +335,9 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       const entradaFormatada = converterDataExcel(entrada);
       const saidaFormatada = converterDataExcel(saida);
 
+      // Normalizar CPF para conter apenas dígitos, independentemente do formato na planilha
+      const cpfNormalizado = (cpf === null || cpf === undefined) ? '' : String(cpf).replace(/\D/g, '');
+
       console.log(`📍 Importando: "${endereco}" -> Logradouro: "${logradouro}", Número: "${numero}"`);
       console.log(`📅 Datas convertidas - Nascimento: ${dataNascimentoFormatada}, Entrada: ${entradaFormatada}, Saída: ${saidaFormatada}`);
 
@@ -352,7 +355,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
           profissao,
           cidade,
           identidade,
-          cpf,
+          cpfNormalizado,
           telefone,
           pais,
           cep,
