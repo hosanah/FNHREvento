@@ -143,14 +143,15 @@ async function getOracleConnection() {
 async function buscarReservaOracle({
   dataChegadaPrevista,
   dataPartidaPrevista,
-  nomeHospede
+  nomeHospede,
+  sobrenomeHospede
 }) {
   const chegada = validarDataParametro('dataChegadaPrevista', dataChegadaPrevista);
   const partida = validarDataParametro('dataPartidaPrevista', dataPartidaPrevista);
   const connection = await getOracleConnection();
 
   try {
-    // Formatar datas para DD/MM/YYYY
+    // Formatar datas para DD/MM/YYYY (com separadores)
     const dataChegadaFormatada = `${String(chegada.getUTCDate()).padStart(2, '0')}/${String(chegada.getUTCMonth() + 1).padStart(2, '0')}/${chegada.getUTCFullYear()}`;
     const dataPartidaFormatada = `${String(partida.getUTCDate()).padStart(2, '0')}/${String(partida.getUTCMonth() + 1).padStart(2, '0')}/${partida.getUTCFullYear()}`;
 
@@ -169,6 +170,44 @@ async function buscarReservaOracle({
           AND TRUNC(RF.DATACHEGPREVISTA) = TO_DATE(:dataChegadaPrevista, 'DD/MM/YYYY')
           AND TRUNC(RF.DATAPARTPREVISTA) = TO_DATE(:dataPartidaPrevista, 'DD/MM/YYYY')
           AND UPPER(H.NOME || ' ' || H.SOBRENOME) LIKE UPPER(:nomeHospede)`;
+
+    // Busca prioritária por nome: 1) primeiro + último sobrenome 2) nome completo 3) apenas primeiro nome
+    try {
+      const primeiroNome = (nomeHospede || '').toString().trim();
+      const sobrenomeStr = (sobrenomeHospede || '').toString().trim();
+      const ultimoSobrenome = sobrenomeStr ? sobrenomeStr.split(/\s+/).filter(Boolean).slice(-1)[0] : '';
+
+      const tentativas = [];
+      if (primeiroNome && ultimoSobrenome) {
+        tentativas.push({ descricao: 'primeiro+ultimo', padrao: `%${primeiroNome} ${ultimoSobrenome}%` });
+      }
+      if (primeiroNome && sobrenomeStr) {
+        tentativas.push({ descricao: 'nome completo', padrao: `%${primeiroNome} ${sobrenomeStr}%` });
+      }
+      if (primeiroNome) {
+        tentativas.push({ descricao: 'apenas primeiro', padrao: `%${primeiroNome}%` });
+      }
+
+      for (const tentativa of tentativas) {
+        const paramsTry = {
+          dataChegadaPrevista: dataChegadaFormatada,
+          dataPartidaPrevista: dataPartidaFormatada,
+          nomeHospede: tentativa.padrao
+        };
+
+        console.log('�Y"? Executando query Oracle (busca:', tentativa.descricao, '):');
+        console.log('Query:', query);
+        console.log('Parǽmetros:', paramsTry);
+
+        const resultTry = await connection.execute(query, paramsTry, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        console.log(`�o. Resultados encontrados (${tentativa.descricao}): ${resultTry.rows.length}`);
+        if (resultTry.rows.length > 0) {
+          return resultTry.rows;
+        }
+      }
+    } catch (buscaErr) {
+      console.warn('�s���?  Falha em tentativas de busca prioritária por nome:', buscaErr.message);
+    }
 
     const params = {
       dataChegadaPrevista: dataChegadaFormatada,

@@ -30,18 +30,7 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
-// Configurações de segurança
-app.use(helmet());
-
-// Rate limiting - limita requisições por IP
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requisições por IP por janela de tempo
-  message: {
-    error: 'Muitas requisições deste IP, tente novamente em 15 minutos.'
-  }
-});
-app.use(limiter);
+// Configurações de segurança (movido para depois do CORS)
 
 // Rate limiting específico para login
 const loginLimiter = rateLimit({
@@ -76,9 +65,25 @@ const corsOptions = {
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
 };
 app.use(cors(corsOptions));
+// Responder preflight (OPTIONS) com sucesso para todas as rotas
+app.options('*', cors(corsOptions));
+
+// Agora aplicar Helmet e rate limiting após CORS
+app.use(helmet());
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // máximo 100 requisições por IP por janela de tempo
+  message: {
+    error: 'Muitas requisições deste IP, tente novamente em 15 minutos.'
+  }
+});
+app.use(limiter);
 
 // Middleware para parsing JSON
 app.use(express.json({ limit: '10mb' }));
